@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f9f6f1">
+<title>myDiary</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400;1,600&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root {
+  --bg: #f9f6f1;
+  --surface: #ffffff;
+  --surface2: #f2ede5;
+  --surface3: #e8e1d6;
+  --text: #1a1612;
+  --text2: #72685e;
+  --text3: #b0a598;
+  --accent: #b8723f;
+  --accent-lt: #f0dac8;
+  --border: #e5ddd2;
+  --success: #5a9e6f;
+  --danger: #c94040;
+  --r: 16px;
+  --r-sm: 10px;
+  --ease: cubic-bezier(.4,0,.2,1);
+  --nav-h: 56px;
+}
+.dk {
+  --bg: #100f0c; --surface: #1a1814; --surface2: #242018;
+  --surface3: #2e2a22; --text: #ede8e0; --text2: #968c80;
+  --text3: #554e45; --accent: #cc8c58; --accent-lt: #382110;
+  --border: #2e2a22;
+}
+.ps {
+  --bg: #fdf4fb; --surface: #fff; --surface2: #f7eaf4;
+  --surface3: #eed5e9; --text: #251621; --text2: #7a5872;
+  --text3: #b898b0; --accent: #b85bac; --accent-lt: #f0d0eb;
+  --border: #e8d0e4;
+}
+
+/* ── BASE ── */
+*,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+html { height:100%; overflow:hidden; -webkit-text-size-adjust:100%; }
+body {
+  height: 100%; overflow: hidden;
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg); color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none; -webkit-user-select: none;
+  overscroll-behavior: none;
+  transition: background .3s var(--ease), color .3s var(--ease);
+}
+textarea, input { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
+
+/* ── LOADING ── */
+#ld {
+  position: fixed; inset: 0; z-index: 9999;
+  background: #0e0c08;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0;
+  transition: opacity .7s var(--ease), visibility .7s var(--ease);
+}
+#ld.out { opacity: 0; visibility: hidden; pointer-events: none; }
+.ld-name {
+  font-family: 'Lora', serif; font-style: italic;
+  font-size: 3rem; letter-spacing: -.5px;
+  color: #ede8e0; line-height: 1;
+  opacity: 0; transform: translateY(10px);
+  animation: ldup .7s .4s var(--ease) forwards;
+}
+.ld-name em { color: #b8723f; font-style: normal; }
+.ld-dev {
+  font-size: .68rem; letter-spacing: .22em; text-transform: uppercase;
+  color: #46403a; margin-top: .65rem;
+  opacity: 0; animation: ldup .5s .85s var(--ease) forwards;
+}
+.ld-line {
+  width: 32px; height: 1px; background: #b8723f;
+  margin-top: 2rem; opacity: 0;
+  animation: ldln 1.6s 1.05s var(--ease) forwards;
+}
+@keyframes ldup { to { opacity:1; transform:translateY(0); } }
+@keyframes ldln { 0%{opacity:0;width:0} 20%{opacity:1} 100%{opacity:1;width:120px} }
+
+/* ── APP ── */
+#app {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; transition: opacity .4s var(--ease);
+}
+#app.show { opacity: 1; }
+
+/* ── TOP BAR ── */
+#topbar {
+  flex-shrink: 0;
+  height: calc(52px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  display: flex; align-items: center;
+  padding-left: 20px; padding-right: 20px;
+  background: var(--bg);
+  transition: background .3s;
+}
+.tb-logo {
+  font-family: 'Lora', serif; font-style: italic;
+  font-size: 1.45rem; color: var(--text); flex: 1;
+}
+.tb-logo em { color: var(--accent); font-style: normal; }
+.tb-right {
+  font-size: .72rem; color: var(--text3);
+  text-align: right; line-height: 1.5;
+  letter-spacing: .01em;
+}
+.tb-right strong { display: block; font-size: .82rem; color: var(--text2); font-weight: 600; }
+
+/* ── PAGES ── */
+#pages { flex: 1; overflow: hidden; position: relative; min-height: 0; }
+.page {
+  position: absolute; inset: 0;
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  opacity: 0; pointer-events: none;
+  transform: translateX(14px);
+  transition: opacity .22s var(--ease), transform .22s var(--ease);
+  scrollbar-width: none;
+}
+.page::-webkit-scrollbar { display: none; }
+.page.active { opacity: 1; pointer-events: auto; transform: translateX(0); }
+
+/* ── BOTTOM NAV ── */
+#nav {
+  flex-shrink: 0;
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: stretch;
+  transition: background .3s, border-color .3s;
+  position: relative; z-index: 20;
+}
+.nt {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 3px;
+  cursor: pointer; touch-action: manipulation;
+  position: relative; padding-top: 6px;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity .15s;
+}
+.nt:active { opacity: .6; }
+.nt .nl {
+  font-size: .6rem; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase;
+  color: var(--text3); transition: color .2s;
+}
+.nt .ndot {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: transparent; transition: background .2s;
+}
+.nt.active .nl { color: var(--accent); }
+.nt.active .ndot { background: var(--accent); }
+/* Write tab — center, fully inside nav */
+.nt.wt { flex: 0 0 64px; }
+.nt.wt .nw {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  font-size: 1.6rem; font-weight: 300; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 10px rgba(184,114,63,.28);
+  transition: transform .18s var(--ease), box-shadow .18s, filter .15s;
+}
+.nt.wt:active .nw { transform: scale(.88); box-shadow: 0 1px 5px rgba(184,114,63,.18); filter: brightness(.92); }
+.nt.wt .nl { display: none; }
+
+/* ── HOME ── */
+/* Streak */
+.streak-wrap { margin: 14px 16px 0; }
+.streak {
+  border-radius: var(--r); padding: 14px 18px;
+  display: flex; align-items: center; gap: 14px;
+  background: var(--accent);
+  box-shadow: 0 3px 16px rgba(184,114,63,.25);
+  transition: background .3s, box-shadow .3s;
+}
+.streak.off { background: var(--surface2); box-shadow: none; }
+.s-n {
+  font-family: 'Lora', serif; font-size: 2rem; font-weight: 600;
+  color: #fff; line-height: 1;
+}
+.streak.off .s-n { color: var(--text); }
+.s-l { font-size: .72rem; color: rgba(255,255,255,.78); line-height: 1.4; }
+.streak.off .s-l { color: var(--text3); }
+.s-div { width: 1px; height: 36px; background: rgba(255,255,255,.2); }
+.streak.off .s-div { background: var(--border); }
+.s-extra { flex: 1; }
+.s-extra-n { font-family: 'Lora', serif; font-size: 1.2rem; font-weight: 600; color: rgba(255,255,255,.9); }
+.streak.off .s-extra-n { color: var(--text2); }
+.s-extra-l { font-size: .68rem; color: rgba(255,255,255,.6); }
+.streak.off .s-extra-l { color: var(--text3); }
+
+/* Month nav */
+.month-row { display: flex; align-items: center; padding: 18px 18px 10px; gap: 10px; }
+.month-lbl { font-family: 'Lora', serif; font-size: 1.15rem; font-weight: 400; flex: 1; }
+.arr {
+  padding: 6px 12px; border-radius: 8px;
+  font-size: .9rem; cursor: pointer; touch-action: manipulation;
+  color: var(--text3); font-weight: 700;
+  transition: color .15s, background .15s;
+}
+.arr:active { background: var(--surface2); color: var(--text); }
+
+/* Calendar grid */
+.cgrid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; padding: 0 12px; }
+.cdow {
+  text-align: center; font-size: .58rem; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text3); padding: 3px 0 7px;
+}
+.cday {
+  aspect-ratio: 1; border-radius: 11px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1px;
+  cursor: pointer; touch-action: manipulation;
+  position: relative; overflow: hidden;
+  transition: transform .18s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.cday:active { transform: scale(.86); }
+.cday.empty { pointer-events: none; }
+.dn { font-size: .68rem; font-weight: 600; color: var(--text3); line-height: 1; }
+.de { font-size: 1.1rem; line-height: 1; }
+.cday.has .dn { color: var(--text); font-weight: 700; }
+.cday.today { background: var(--accent-lt); }
+.cday.today .dn { color: var(--accent); font-weight: 800; }
+.cday.no .de { opacity: 0; }
+/* Day color dot */
+.cday .cdot {
+  width: 5px; height: 5px; border-radius: 50%;
+  position: absolute; bottom: 3px; left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Recent */
+.sec-label {
+  font-size: .68rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3);
+  padding: 20px 18px 10px;
+}
+.ecard {
+  background: var(--surface); border-radius: var(--r);
+  margin: 0 14px 9px; padding: 15px 16px;
+  cursor: pointer; touch-action: manipulation;
+  box-shadow: 0 1px 4px rgba(26,22,18,.06);
+  transition: transform .18s, box-shadow .18s;
+  position: relative; overflow: hidden;
+}
+.ecard:active { transform: scale(.98); }
+.ecard-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.ecard-emoji { font-size: 1.4rem; }
+.ecard-date { font-size: .76rem; color: var(--text2); font-weight: 600; flex: 1; }
+.ecard-fav { font-size: .75rem; color: var(--accent); font-weight: 700; }
+.ecard-preview {
+  font-size: .86rem; color: var(--text2); line-height: 1.65;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ecard-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 9px; }
+.ecard-tag {
+  padding: 2px 9px; border-radius: 20px;
+  font-size: .65rem; font-weight: 700;
+  background: var(--surface2); color: var(--text3);
+}
+.ecard-color { width: 3px; position: absolute; top: 0; bottom: 0; left: 0; border-radius: 3px 0 0 3px; }
+
+.empty-st { text-align: center; padding: 40px 20px 20px; }
+.empty-ico { font-size: .8rem; color: var(--text3); letter-spacing: .2em; text-transform: uppercase; margin-bottom: 10px; }
+.empty-ttl { font-family: 'Lora', serif; font-size: 1.05rem; color: var(--text2); margin-bottom: 5px; }
+.empty-sub { font-size: .82rem; color: var(--text3); line-height: 1.6; }
+
+/* ── SEARCH ── */
+.s-sticky {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--bg); padding: 14px 14px 10px;
+  transition: background .3s;
+}
+.sbox {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface2); border-radius: 12px;
+  padding: 0 14px;
+  border: 1.5px solid transparent;
+  transition: border-color .2s, background .2s;
+}
+.sbox:focus-within { border-color: var(--accent); background: var(--surface); }
+.si { font-size: .85rem; color: var(--text3); font-weight: 700; }
+.sinput {
+  flex: 1; border: none; background: transparent; outline: none;
+  font-family: 'Nunito', sans-serif; font-size: .95rem;
+  color: var(--text); padding: 13px 0;
+}
+.sinput::placeholder { color: var(--text3); }
+.sclr { font-size: .8rem; color: var(--text3); cursor: pointer; touch-action: manipulation; padding: 4px; font-weight: 700; }
+.sres { padding: 0 14px 14px; }
+mark { background: var(--accent-lt); color: var(--accent); border-radius: 2px; padding: 0 1px; }
+
+/* ── STATS ── */
+#page-stats { padding: 16px 14px; }
+.stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.stc { background: var(--surface); border-radius: var(--r); padding: 16px; box-shadow: 0 1px 4px rgba(26,22,18,.05); }
+.stc-n { font-family: 'Lora', serif; font-size: 2rem; font-weight: 600; color: var(--accent); line-height: 1; }
+.stc-l { font-size: .65rem; color: var(--text3); margin-top: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.chart-card { background: var(--surface); border-radius: var(--r); padding: 16px; box-shadow: 0 1px 4px rgba(26,22,18,.05); margin-bottom: 8px; }
+.chart-lbl { font-size: .65rem; font-weight: 700; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .08em; }
+.bar-row { display: flex; align-items: flex-end; gap: 5px; height: 64px; }
+.bc { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; height: 100%; justify-content: flex-end; }
+.bs { width: 100%; border-radius: 4px 4px 0 0; background: var(--accent); min-height: 2px; transition: height .7s var(--ease); }
+.bs.mt { background: var(--surface2); }
+.bd { font-size: .55rem; color: var(--text3); font-weight: 700; }
+.ef-wrap { display: flex; flex-wrap: wrap; gap: 10px; }
+.ef-item { text-align: center; }
+.ef-e { font-size: 1.6rem; display: block; }
+.ef-n { font-size: .6rem; color: var(--text3); font-weight: 700; }
+.wc-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+.ww { padding: 3px 10px; border-radius: 20px; font-weight: 600; background: var(--surface2); color: var(--text2); }
+.ach-list { display: flex; flex-direction: column; gap: 7px; }
+.ach-item { background: var(--surface); border-radius: var(--r-sm); padding: 14px 15px; display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 4px rgba(26,22,18,.05); }
+.ach-item.lk { opacity: .35; }
+.ai-ico { font-size: 1.5rem; }
+.ai-ttl { font-weight: 700; font-size: .88rem; }
+.ai-desc { font-size: .72rem; color: var(--text3); margin-top: 1px; }
+.ai-badge { margin-left: auto; font-size: .6rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: var(--accent-lt); color: var(--accent); white-space: nowrap; }
+.ach-item.lk .ai-badge { background: var(--surface2); color: var(--text3); }
+.s-ttl { font-family: 'Lora', serif; font-size: .95rem; font-weight: 400; color: var(--text2); margin: 18px 0 10px; }
+.s-ttl:first-child { margin-top: 0; }
+
+/* ── MORE ── */
+#page-more { padding: 14px; }
+.m-sec { background: var(--surface); border-radius: var(--r); overflow: hidden; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(26,22,18,.05); }
+.m-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; cursor: pointer; touch-action: manipulation;
+  border-bottom: 1px solid var(--border);
+  transition: background .12s; position: relative; overflow: hidden;
+}
+.m-row:last-child { border-bottom: none; }
+.m-row:active { background: var(--surface2); }
+.mr-lbl { font-size: .9rem; font-weight: 600; flex: 1; }
+.mr-val { font-size: .78rem; color: var(--text3); }
+.mr-arr { font-size: .75rem; color: var(--text3); font-weight: 700; }
+.mhd { font-size: .65rem; font-weight: 700; color: var(--text3); letter-spacing: .1em; text-transform: uppercase; padding: 16px 2px 7px; }
+.mhd:first-child { padding-top: 0; }
+.theme-row { display: flex; gap: 8px; background: var(--surface); border-radius: var(--r); padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(26,22,18,.05); }
+.tb {
+  flex: 1; height: 40px; border-radius: 10px;
+  cursor: pointer; touch-action: manipulation;
+  border: 2px solid transparent;
+  transition: border-color .2s, transform .15s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .7rem; font-weight: 700; color: rgba(255,255,255,0);
+}
+.tb:active { transform: scale(.93); }
+.tb.act { border-color: var(--accent); color: rgba(255,255,255,.9); }
+.tb-light { background: linear-gradient(135deg,#f9f6f1,#b8723f); }
+.tb-dark { background: linear-gradient(135deg,#100f0c,#cc8c58); }
+.tb-pastel { background: linear-gradient(135deg,#fdf4fb,#b85bac); }
+.lang-wrap select {
+  width: 100%; padding: 14px 40px 14px 16px;
+  border: none; background: transparent; outline: none;
+  font-family: 'Nunito', sans-serif; font-size: .9rem;
+  font-weight: 600; color: var(--text); cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23b0a598' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px center;
+}
+.tgl { position: relative; width: 46px; height: 25px; }
+.tgl input { opacity: 0; width: 0; height: 0; }
+.tsl { position: absolute; inset: 0; border-radius: 25px; background: var(--surface3); cursor: pointer; transition: background .3s; }
+.tsl::before { content: ''; position: absolute; width: 19px; height: 19px; border-radius: 50%; background: #fff; top: 3px; left: 3px; transition: transform .3s var(--ease); box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+.tgl input:checked + .tsl { background: var(--accent); }
+.tgl input:checked + .tsl::before { transform: translateX(21px); }
+
+/* ── READ VIEW (overlay) ── */
+#rv {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  transform: translateY(100%);
+  transition: transform .38s var(--ease);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#rv.open { transform: translateY(0); }
+.rv-top {
+  flex-shrink: 0;
+  padding: calc(env(safe-area-inset-top) + 12px) 18px 12px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg); transition: background .3s;
+}
+.rv-back {
+  font-size: .85rem; font-weight: 700; color: var(--text3);
+  cursor: pointer; touch-action: manipulation;
+  padding: 6px 0; letter-spacing: .04em;
+  transition: color .15s;
+}
+.rv-back:active { color: var(--accent); }
+.rv-actions { display: flex; gap: 10px; margin-left: auto; }
+.rv-btn {
+  font-size: .8rem; font-weight: 700; letter-spacing: .05em;
+  color: var(--text3); cursor: pointer; touch-action: manipulation;
+  padding: 6px 12px; border-radius: 8px;
+  transition: background .15s, color .15s;
+  background: var(--surface2);
+}
+.rv-btn:active { background: var(--surface3); }
+.rv-btn.primary { background: var(--accent-lt); color: var(--accent); }
+.rv-btn.primary:active { filter: brightness(.94); }
+.rv-scroll {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; padding: 0 22px 60px;
+  scrollbar-width: none;
+}
+.rv-scroll::-webkit-scrollbar { display: none; }
+/* Read view content */
+.rv-dateline {
+  font-size: .72rem; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--text3);
+  margin-bottom: 6px;
+}
+.rv-headline {
+  font-family: 'Lora', serif;
+  font-size: 1.6rem; font-weight: 400; line-height: 1.25;
+  color: var(--text); margin-bottom: 20px;
+}
+.rv-mood {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 24px; padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.rv-emoji { font-size: 2.2rem; }
+.rv-mood-lbl { font-size: .78rem; color: var(--text3); }
+.rv-color-badge {
+  width: 14px; height: 14px; border-radius: 50%;
+  margin-left: auto;
+}
+.rv-body {
+  font-family: 'Lora', serif; font-size: 1.05rem;
+  line-height: 1.85; color: var(--text2); white-space: pre-wrap;
+  word-break: break-word;
+}
+.rv-tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border);
+}
+.rv-tag {
+  padding: 4px 12px; border-radius: 20px;
+  font-size: .72rem; font-weight: 700;
+  background: var(--surface2); color: var(--text3);
+}
+.rv-empty {
+  font-family: 'Lora', serif; font-style: italic;
+  font-size: 1rem; color: var(--text3); text-align: center;
+  margin-top: 60px; line-height: 1.8;
+}
+
+/* ── EDIT OVERLAY ── */
+#eo {
+  position: fixed; inset: 0; z-index: 210;
+  background: var(--bg);
+  transform: translateY(100%);
+  transition: transform .38s var(--ease);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#eo.open { transform: translateY(0); }
+.eo-top {
+  flex-shrink: 0;
+  padding: calc(env(safe-area-inset-top) + 11px) 18px 11px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg); transition: background .3s;
+}
+.eo-back {
+  font-size: .85rem; font-weight: 700; color: var(--text3);
+  cursor: pointer; touch-action: manipulation;
+  padding: 6px 0; letter-spacing: .04em;
+  transition: color .15s;
+}
+.eo-back:active { color: var(--accent); }
+.eo-date { font-family: 'Lora', serif; font-style: italic; font-size: 1rem; flex: 1; word-break: break-word; }
+.fav-btn {
+  font-size: .85rem; font-weight: 700; letter-spacing: .05em;
+  color: var(--text3); cursor: pointer; touch-action: manipulation;
+  padding: 6px 10px; border-radius: 8px;
+  background: var(--surface2);
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.fav-btn.on { background: var(--accent-lt); color: var(--accent); }
+.fav-btn:active { filter: brightness(.94); }
+
+.eo-scroll {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; padding: 0 16px 130px;
+  scrollbar-width: none;
+}
+.eo-scroll::-webkit-scrollbar { display: none; }
+
+/* Field label */
+.fld-lbl {
+  font-size: .62rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3);
+  margin: 16px 0 8px; display: block;
+}
+
+/* Emoji row */
+.emoji-strip {
+  display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.emoji-strip::-webkit-scrollbar { display: none; }
+.esb {
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px;
+  background: var(--surface); font-size: 1.35rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; touch-action: manipulation;
+  border: 2px solid transparent; box-shadow: 0 1px 4px rgba(26,22,18,.06);
+  transition: transform .15s, border-color .15s, background .15s;
+}
+.esb:active { transform: scale(.82); }
+.esb.sel { border-color: var(--accent); background: var(--accent-lt); }
+
+/* Textarea */
+.eta {
+  width: 100%; min-height: 160px;
+  border: 1.5px solid var(--border); border-radius: var(--r);
+  background: var(--surface); padding: 14px;
+  font-family: 'Nunito', sans-serif; font-size: .97rem;
+  line-height: 1.75; color: var(--text); resize: none; outline: none;
+  -webkit-appearance: none; transition: border-color .2s, background .3s;
+  word-break: break-word;
+}
+.eta:focus { border-color: var(--accent); }
+.eta-meta {
+  display: flex; justify-content: flex-end; gap: 12px;
+  font-size: .65rem; color: var(--text3); margin: 5px 0 2px;
+  font-weight: 700; letter-spacing: .04em;
+}
+
+/* Tags */
+.tags-wrap { display: flex; flex-wrap: wrap; gap: 7px; padding-bottom: 10px; }
+.tpill {
+  padding: 7px 13px; border-radius: 20px;
+  font-size: .78rem; font-weight: 700;
+  background: var(--surface); border: 1.5px solid var(--border);
+  cursor: pointer; touch-action: manipulation; color: var(--text2);
+  transition: all .18s;
+}
+.tpill:active { transform: scale(.88); }
+.tpill.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Day color picker */
+.color-picker { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 10px; }
+.cp-swatch {
+  width: 34px; height: 34px; border-radius: 50%;
+  cursor: pointer; touch-action: manipulation;
+  border: 2.5px solid transparent;
+  transition: transform .18s, border-color .18s;
+}
+.cp-swatch:active { transform: scale(.84); }
+.cp-swatch.sel { border-color: var(--text); transform: scale(1.1); }
+.cp-none {
+  width: 34px; height: 34px; border-radius: 50%;
+  cursor: pointer; touch-action: manipulation;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .65rem; color: var(--text3); font-weight: 700;
+  transition: transform .18s;
+}
+.cp-none:active { transform: scale(.84); }
+.cp-none.sel { border-color: var(--accent); }
+
+/* Prompt */
+.prompt-c {
+  background: var(--surface); border-radius: var(--r-sm);
+  padding: 13px 14px; margin-bottom: 10px;
+  border-left: 2px solid var(--accent);
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.prompt-tx { font-size: .84rem; color: var(--text2); line-height: 1.55; flex: 1; word-break: break-word; }
+.prompt-ref {
+  flex-shrink: 0; font-size: .75rem; color: var(--accent);
+  cursor: pointer; touch-action: manipulation; padding: 3px;
+  font-weight: 700; letter-spacing: .05em;
+  transition: opacity .15s;
+}
+.prompt-ref:active { opacity: .5; }
+
+/* ── SAVE BAR ── */
+#savebar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 300;
+  padding: 10px 14px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  background: var(--bg); border-top: 1px solid var(--border);
+  display: flex; gap: 8px;
+  transform: translateY(100%);
+  transition: transform .3s var(--ease), background .3s, border-color .3s;
+}
+#savebar.vis { transform: translateY(0); }
+.sb-del {
+  width: 48px; height: 48px; border-radius: 13px; flex-shrink: 0;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+  color: var(--danger); cursor: pointer; touch-action: manipulation;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, background .15s;
+}
+.sb-del:active { transform: scale(.88); background: #fde8e8; }
+.sb-main {
+  flex: 1; height: 48px; border-radius: 13px;
+  background: var(--accent); border: none;
+  font-family: 'Nunito', sans-serif; font-size: .9rem; font-weight: 700;
+  letter-spacing: .05em; color: #fff; cursor: pointer; touch-action: manipulation;
+  transition: transform .15s, filter .15s;
+}
+.sb-main:active { transform: scale(.97); filter: brightness(.92); }
+
+/* ── MOOD SHEET ── */
+#msheet { position: fixed; inset: 0; z-index: 500; pointer-events: none; }
+#msheet .mbg { position: absolute; inset: 0; background: rgba(0,0,0,0); transition: background .3s; }
+#msheet.open { pointer-events: auto; }
+#msheet.open .mbg { background: rgba(0,0,0,.4); }
+.mpanel {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  padding: 14px 18px calc(20px + env(safe-area-inset-bottom));
+  transform: translateY(100%); transition: transform .35s var(--ease);
+}
+#msheet.open .mpanel { transform: translateY(0); }
+.mhandle { width: 36px; height: 3px; border-radius: 2px; background: var(--border); margin: 0 auto 14px; }
+.mttl { font-family: 'Lora', serif; font-size: 1rem; text-align: center; margin-bottom: 14px; color: var(--text2); }
+.mgrid { display: grid; grid-template-columns: repeat(6,1fr); gap: 7px; margin-bottom: 14px; }
+.mb {
+  aspect-ratio: 1; border-radius: 12px; font-size: 1.5rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; touch-action: manipulation;
+  background: var(--surface2); border: 2px solid transparent;
+  transition: transform .18s, border-color .18s;
+}
+.mb:active { transform: scale(.82); }
+.mb.sel { background: var(--accent-lt); border-color: var(--accent); }
+.ms-save {
+  width: 100%; height: 48px; border-radius: 13px;
+  background: var(--accent); border: none;
+  font-family: 'Nunito', sans-serif; font-size: .9rem; font-weight: 700;
+  letter-spacing: .05em; color: #fff; cursor: pointer; touch-action: manipulation;
+  transition: transform .15s, filter .15s;
+}
+.ms-save:active { transform: scale(.97); }
+
+/* ── PIN ── */
+#pin {
+  position: fixed; inset: 0; z-index: 800; background: #0e0c08;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s;
+}
+#pin.show { opacity: 1; visibility: visible; }
+.p-logo { font-family: 'Lora', serif; font-style: italic; font-size: 2rem; color: #ede8e0; }
+.p-logo em { color: #b8723f; font-style: normal; }
+.p-sub { font-size: .65rem; letter-spacing: .2em; text-transform: uppercase; color: #46403a; margin-top: .4rem; margin-bottom: 2rem; }
+.pdots { display: flex; gap: 12px; margin-bottom: 2rem; }
+.pdot { width: 11px; height: 11px; border-radius: 50%; border: 2px solid #302c24; transition: all .2s; }
+.pdot.on { background: #b8723f; border-color: #b8723f; transform: scale(1.18); }
+.ppad { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; width: 240px; }
+.pk {
+  height: 62px; border-radius: 14px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+  font-size: 1.4rem; font-family: 'Lora', serif; color: #ede8e0;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .14s, transform .14s;
+}
+.pk:active { background: rgba(184,114,63,.22); transform: scale(.91); }
+.perr { color: #c94040; font-size: .75rem; margin-top: .8rem; min-height: 1.1em; text-align: center; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: calc(72px + env(safe-area-inset-bottom));
+  left: 50%; transform: translateX(-50%) translateY(24px);
+  background: var(--text); color: var(--bg);
+  padding: 9px 18px; border-radius: 24px;
+  font-size: .8rem; font-weight: 700; z-index: 700;
+  white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity .3s, transform .3s var(--ease);
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── RIPPLE ── */
+.rpl { position: absolute; border-radius: 50%; background: rgba(184,114,63,.18); transform: scale(0); animation: rpl .5s linear; pointer-events: none; }
+@keyframes rpl { to { transform: scale(4); opacity: 0; } }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="ld">
+  <div class="ld-name">my<em>Diary</em></div>
+  <div class="ld-dev">developed by Joseph Afif</div>
+  <div class="ld-line"></div>
+</div>
+
+<!-- PIN -->
+<div id="pin">
+  <div class="p-logo">my<em>Diary</em></div>
+  <div class="p-sub" id="p-sub">Enter your PIN</div>
+  <div class="pdots"><div class="pdot" id="pd0"></div><div class="pdot" id="pd1"></div><div class="pdot" id="pd2"></div><div class="pdot" id="pd3"></div></div>
+  <div class="ppad">
+    <div class="pk" onclick="pk('1')">1</div><div class="pk" onclick="pk('2')">2</div><div class="pk" onclick="pk('3')">3</div>
+    <div class="pk" onclick="pk('4')">4</div><div class="pk" onclick="pk('5')">5</div><div class="pk" onclick="pk('6')">6</div>
+    <div class="pk" onclick="pk('7')">7</div><div class="pk" onclick="pk('8')">8</div><div class="pk" onclick="pk('9')">9</div>
+    <div class="pk" onclick="pk('back')">⌫</div><div class="pk" onclick="pk('0')">0</div><div class="pk" onclick="pk('ok')">↵</div>
+  </div>
+  <div class="perr" id="perr"></div>
+</div>
+
+<div id="toast"></div>
+
+<!-- APP -->
+<div id="app">
+  <div id="topbar">
+    <div class="tb-logo">my<em>Diary</em></div>
+    <div class="tb-right" id="tb-date"></div>
+  </div>
+  <div id="pages">
+    <!-- HOME -->
+    <div class="page active" id="page-home">
+      <div class="streak-wrap">
+        <div class="streak off" id="streak">
+          <div><div class="s-n" id="s-n">0</div><div class="s-l" id="s-l">Start your streak</div></div>
+          <div class="s-div"></div>
+          <div class="s-extra"><div class="s-extra-n" id="s-total">0</div><div class="s-extra-l" id="s-total-l">entries</div></div>
+        </div>
+      </div>
+      <div class="month-row">
+        <div class="month-lbl" id="mname"></div>
+        <div class="arr" onclick="cn(-1)">‹</div>
+        <div class="arr" onclick="cn(1)">›</div>
+      </div>
+      <div class="cgrid" id="cgrid"></div>
+      <div class="sec-label" id="recent-hd">Recent</div>
+      <div id="recent"></div>
+      <div style="height:16px"></div>
+    </div>
+    <!-- SEARCH -->
+    <div class="page" id="page-search">
+      <div class="s-sticky">
+        <div class="sbox">
+          <span class="si">Search</span>
+          <input class="sinput" id="sinput" type="search" placeholder="entries, moods, tags…" oninput="doSearch(this.value)">
+          <span class="sclr" id="sclr" onclick="clrSearch()" style="display:none">✕</span>
+        </div>
+      </div>
+      <div class="sres" id="sres">
+        <div class="empty-st"><div class="empty-ico">— —</div><div class="empty-ttl" id="s-empty-t">Search your diary</div><div class="empty-sub" id="s-empty-s">Type to find entries</div></div>
+      </div>
+    </div>
+    <!-- STATS -->
+    <div class="page" id="page-stats"></div>
+    <!-- MORE -->
+    <div class="page" id="page-more"></div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div id="nav">
+    <div class="nt active" id="t-home" onclick="sw('home')">
+      <div class="ndot"></div><span class="nl" id="nl-home">Home</span>
+    </div>
+    <div class="nt" id="t-search" onclick="sw('search')">
+      <div class="ndot"></div><span class="nl" id="nl-search">Search</span>
+    </div>
+    <div class="nt wt" id="t-write" onclick="openEdit(null)">
+      <div class="nw">+</div>
+    </div>
+    <div class="nt" id="t-stats" onclick="sw('stats')">
+      <div class="ndot"></div><span class="nl" id="nl-stats">Stats</span>
+    </div>
+    <div class="nt" id="t-more" onclick="sw('more')">
+      <div class="ndot"></div><span class="nl" id="nl-more">More</span>
+    </div>
+  </div>
+</div>
+
+<!-- READ VIEW -->
+<div id="rv">
+  <div class="rv-top">
+    <span class="rv-back" onclick="closeRead()">← Back</span>
+    <div class="rv-actions">
+      <span class="rv-btn primary" onclick="openEditFromRead()">Edit</span>
+    </div>
+  </div>
+  <div class="rv-scroll" id="rv-scroll">
+    <div class="rv-dateline" id="rv-dateline"></div>
+    <div class="rv-headline" id="rv-headline"></div>
+    <div class="rv-mood" id="rv-mood"></div>
+    <div class="rv-body" id="rv-body"></div>
+    <div class="rv-tags" id="rv-tags"></div>
+  </div>
+</div>
+
+<!-- EDIT OVERLAY -->
+<div id="eo">
+  <div class="eo-top">
+    <span class="eo-back" id="eo-back" onclick="closeEdit()">← Back</span>
+    <div class="eo-date" id="eo-date"></div>
+    <button class="fav-btn" id="fav-btn" onclick="toggleFav()">Save as fav</button>
+  </div>
+  <div class="eo-scroll" id="eo-scroll">
+    <span class="fld-lbl" id="chip-mood">Mood</span>
+    <div class="emoji-strip" id="emoji-strip"></div>
+
+    <span class="fld-lbl" id="chip-entry">Entry</span>
+    <textarea class="eta" id="eta" rows="7" oninput="updWC()"></textarea>
+    <div class="eta-meta"><span id="wc">0 words</span><span id="rt">~1 min</span></div>
+
+    <span class="fld-lbl" id="chip-tags">Tags</span>
+    <div class="tags-wrap" id="tags-wrap"></div>
+
+    <span class="fld-lbl" id="chip-color">Day color</span>
+    <div class="color-picker" id="color-picker"></div>
+
+    <div class="prompt-c" id="prompt-c">
+      <span class="prompt-tx" id="prompt-tx"></span>
+      <span class="prompt-ref" onclick="newPr()">New</span>
+    </div>
+  </div>
+</div>
+
+<!-- SAVE BAR -->
+<div id="savebar">
+  <button class="sb-del" onclick="delEntry()">Del</button>
+  <button class="sb-main" id="sb-main" onclick="saveEntry()">Save</button>
+</div>
+
+<!-- MOOD SHEET -->
+<div id="msheet" onclick="closeMSheet(event)">
+  <div class="mbg"></div>
+  <div class="mpanel">
+    <div class="mhandle"></div>
+    <div class="mttl" id="mttl">How are you feeling?</div>
+    <div class="mgrid" id="mgrid"></div>
+    <button class="ms-save" onclick="saveMood()">Open entry</button>
+  </div>
+</div>
+
+<script>
+// ════ TRANSLATIONS ════
+const T = {
+  en:{home:"Home",search:"Search",write:"Write",stats:"Stats",more:"More",
+    mood:"Mood",entry:"Entry",tags:"Tags",color:"Day color",
+    save:"Save",del:"Del",fav:"Save as fav",unfav:"Favorited",
+    streakDays:"day streak",startStreak:"Start your streak",
+    entries:"entries",
+    noEntry:"No entries yet",noEntryD:"Tap Write to begin",
+    srchEmpty:"Search your diary",srchEmptySub:"Type to find entries",
+    noRes:"Nothing found",noResSub:"Try different keywords",
+    recent:"Recent",
+    total:"Total",lstStreak:"Best streak",totWords:"Words written",favs:"Favorites",
+    days:"days",thisWeek:"This week",emojiF:"Mood frequency",achs:"Achievements",topW:"Top words",
+    ap:"Appearance",lang:"Language",sec:"Security",
+    pinLock:"PIN Lock",pinDesc:"4-digit PIN",chgPin:"Change PIN",
+    data:"Data",clearAll:"Clear all entries",
+    favsLbl:"Favorites",noFavs:"No favorites yet",noFavsD:"Star an entry to add it here",
+    exp:"Export",expHtml:"Export HTML",expTxt:"Export Text",expJson:"Backup JSON",
+    shareT:"Copy today",enterPin:"Enter your PIN",
+    wds:"words",rd:"min read",qMood:"How are you feeling?",
+    achStreak3:{t:"3-Day Streak",d:"3 days in a row"},
+    achStreak7:{t:"Week Warrior",d:"7 days in a row"},
+    achStreak30:{t:"Monthly Master",d:"30 days in a row"},
+    ach10:{t:"10 Entries",d:"10 diary entries"},
+    ach50:{t:"50 Entries",d:"50 diary entries"},
+    ach100:{t:"Century",d:"100 entries"},
+    achWords1000:{t:"Word Weaver",d:"1,000 words total"},
+    achFav5:{t:"Collector",d:"5 favorites saved"},
+    tagsList:["Work","Family","Health","Hobby","Love","Travel","Friends","Learning"],
+    prompts:["What made you smile today?","Describe a moment of beauty you noticed.","What are you grateful for right now?","What challenged you today?","If today had a color, what would it be?","Write about someone who inspired you.","What small victory are you proud of?","Describe your perfect tomorrow.","What would you tell your past self?","What song matches your mood?"]},
+  sv:{home:"Hem",search:"Sök",write:"Skriv",stats:"Statistik",more:"Mer",
+    mood:"Humör",entry:"Anteckning",tags:"Taggar",color:"Dagfärg",
+    save:"Spara",del:"Ta bort",fav:"Spara som fav",unfav:"Favorit",
+    streakDays:"dagars svit",startStreak:"Börja din svit",entries:"anteckningar",
+    noEntry:"Inga anteckningar",noEntryD:"Tryck Skriv för att börja",
+    srchEmpty:"Sök i din dagbok",srchEmptySub:"Skriv för att hitta",
+    noRes:"Inget hittades",noResSub:"Prova andra ord",recent:"Senaste",
+    total:"Totalt",lstStreak:"Längsta svit",totWords:"Skrivna ord",favs:"Favoriter",
+    days:"dagar",thisWeek:"Denna vecka",emojiF:"Humörfrekvens",achs:"Prestationer",topW:"Vanligaste ord",
+    ap:"Utseende",lang:"Språk",sec:"Säkerhet",pinLock:"PIN-lås",pinDesc:"4-siffrig PIN",chgPin:"Ändra PIN",
+    data:"Data",clearAll:"Rensa allt",favsLbl:"Favoriter",noFavs:"Inga favoriter",noFavsD:"Stjärnmarkera en anteckning",
+    exp:"Exportera",expHtml:"Exportera HTML",expTxt:"Exportera Text",expJson:"JSON-backup",shareT:"Kopiera idag",
+    enterPin:"Ange din PIN",wds:"ord",rd:"min läsning",qMood:"Hur mår du?",
+    achStreak3:{t:"3-dagarsvit",d:"3 dagar i rad"},achStreak7:{t:"Veckohjälte",d:"7 dagar i rad"},
+    achStreak30:{t:"Månadsmästare",d:"30 dagar i rad"},ach10:{t:"10 anteckningar",d:"10 inlägg"},
+    ach50:{t:"50 anteckningar",d:"50 inlägg"},ach100:{t:"Hundring",d:"100 anteckningar"},
+    achWords1000:{t:"Ordvävare",d:"1 000 ord totalt"},achFav5:{t:"Samlare",d:"5 favoriter"},
+    tagsList:["Jobb","Familj","Hälsa","Hobby","Kärlek","Resa","Vänner","Lärande"],
+    prompts:["Vad fick dig att le idag?","Beskriv ett vackert ögonblick.","Vad är du tacksam för?","Vad utmanade dig?","Om idag hade en färg?","Skriv om någon som inspirerat dig.","Vilken liten seger är du stolt över?","Beskriv din perfekta morgondag.","Vad skulle du säga till ditt förra jag?","Vilken låt matchar ditt humör?"]},
+  es:{home:"Inicio",search:"Buscar",write:"Escribir",stats:"Stats",more:"Más",
+    mood:"Ánimo",entry:"Entrada",tags:"Etiquetas",color:"Color del día",
+    save:"Guardar",del:"Borrar",fav:"Guardar fav",unfav:"Favorito",
+    streakDays:"días seguidos",startStreak:"Comienza tu racha",entries:"entradas",
+    noEntry:"Sin entradas",noEntryD:"Toca Escribir para comenzar",
+    srchEmpty:"Busca en tu diario",srchEmptySub:"Escribe para encontrar",
+    noRes:"Nada encontrado",noResSub:"Prueba otras palabras",recent:"Recientes",
+    total:"Total",lstStreak:"Racha más larga",totWords:"Palabras escritas",favs:"Favoritos",
+    days:"días",thisWeek:"Esta semana",emojiF:"Frecuencia de ánimo",achs:"Logros",topW:"Palabras más usadas",
+    ap:"Apariencia",lang:"Idioma",sec:"Seguridad",pinLock:"PIN",pinDesc:"PIN de 4 dígitos",chgPin:"Cambiar PIN",
+    data:"Datos",clearAll:"Borrar todo",favsLbl:"Favoritos",noFavs:"Sin favoritos",noFavsD:"Marca una entrada",
+    exp:"Exportar",expHtml:"HTML",expTxt:"Texto",expJson:"JSON",shareT:"Copiar hoy",
+    enterPin:"Introduce tu PIN",wds:"palabras",rd:"min lectura",qMood:"¿Cómo te sientes?",
+    achStreak3:{t:"3 días",d:"3 días seguidos"},achStreak7:{t:"Semana",d:"7 días"},
+    achStreak30:{t:"Mes",d:"30 días"},ach10:{t:"10 entradas",d:"10 entradas"},
+    ach50:{t:"50 entradas",d:"50 entradas"},ach100:{t:"100",d:"100 entradas"},
+    achWords1000:{t:"Escritor",d:"1.000 palabras"},achFav5:{t:"Coleccionista",d:"5 favoritos"},
+    tagsList:["Trabajo","Familia","Salud","Hobby","Amor","Viaje","Amigos","Aprendizaje"],
+    prompts:["¿Qué te hizo sonreír?","Describe un momento de belleza.","¿Por qué estás agradecido?","¿Qué te desafió hoy?","Si hoy tuviera un color...","Sobre alguien que te inspiró.","¿De qué victoria estás orgulloso?","Tu mañana perfecto.","¿Qué le dirías a tu yo pasado?","¿Qué canción va con tu humor?"]},
+  fr:{home:"Accueil",search:"Chercher",write:"Écrire",stats:"Stats",more:"Plus",
+    mood:"Humeur",entry:"Entrée",tags:"Tags",color:"Couleur du jour",
+    save:"Enregistrer",del:"Suppr.",fav:"Ajouter fav",unfav:"Favori",
+    streakDays:"jours consécutifs",startStreak:"Commencez votre série",entries:"entrées",
+    noEntry:"Pas d'entrées",noEntryD:"Appuyez sur Écrire",
+    srchEmpty:"Chercher dans le journal",srchEmptySub:"Tapez pour trouver",
+    noRes:"Rien trouvé",noResSub:"Essayez d'autres mots",recent:"Récentes",
+    total:"Total",lstStreak:"Meilleure série",totWords:"Mots écrits",favs:"Favoris",
+    days:"jours",thisWeek:"Cette semaine",emojiF:"Fréquence d'humeur",achs:"Succès",topW:"Mots fréquents",
+    ap:"Apparence",lang:"Langue",sec:"Sécurité",pinLock:"PIN",pinDesc:"PIN à 4 chiffres",chgPin:"Changer PIN",
+    data:"Données",clearAll:"Effacer tout",favsLbl:"Favoris",noFavs:"Pas de favoris",noFavsD:"Étoilez une entrée",
+    exp:"Exporter",expHtml:"HTML",expTxt:"Texte",expJson:"JSON",shareT:"Copier aujourd'hui",
+    enterPin:"Entrez votre PIN",wds:"mots",rd:"min lecture",qMood:"Comment vous sentez-vous?",
+    achStreak3:{t:"3 jours",d:"3 jours de suite"},achStreak7:{t:"Semaine",d:"7 jours"},
+    achStreak30:{t:"Mois",d:"30 jours"},ach10:{t:"10 entrées",d:"10 entrées"},
+    ach50:{t:"50 entrées",d:"50 entrées"},ach100:{t:"100",d:"100 entrées"},
+    achWords1000:{t:"Rédacteur",d:"1 000 mots"},achFav5:{t:"Collectionneur",d:"5 favoris"},
+    tagsList:["Travail","Famille","Santé","Loisir","Amour","Voyage","Amis","Apprentissage"],
+    prompts:["Qu'est-ce qui vous a fait sourire?","Décrivez un moment de beauté.","De quoi êtes-vous reconnaissant?","Qu'est-ce qui vous a défié?","Si aujourd'hui avait une couleur?","Sur quelqu'un qui vous a inspiré.","De quelle victoire êtes-vous fier?","Votre lendemain parfait.","Que diriez-vous à votre moi passé?","Quelle chanson correspond à votre humeur?"]},
+  de:{home:"Start",search:"Suchen",write:"Schreiben",stats:"Statistik",more:"Mehr",
+    mood:"Stimmung",entry:"Eintrag",tags:"Tags",color:"Tagesfarbe",
+    save:"Speichern",del:"Löschen",fav:"Als Fav speichern",unfav:"Favorit",
+    streakDays:"Tage in Folge",startStreak:"Starte deine Serie",entries:"Einträge",
+    noEntry:"Keine Einträge",noEntryD:"Tippe Schreiben",
+    srchEmpty:"Suche im Tagebuch",srchEmptySub:"Schreibe zum Suchen",
+    noRes:"Nichts gefunden",noResSub:"Andere Begriffe",recent:"Letzte",
+    total:"Gesamt",lstStreak:"Längste Serie",totWords:"Geschriebene Wörter",favs:"Favoriten",
+    days:"Tage",thisWeek:"Diese Woche",emojiF:"Stimmungsfrequenz",achs:"Erfolge",topW:"Häufige Wörter",
+    ap:"Erscheinungsbild",lang:"Sprache",sec:"Sicherheit",pinLock:"PIN",pinDesc:"4-stellige PIN",chgPin:"PIN ändern",
+    data:"Daten",clearAll:"Alles löschen",favsLbl:"Favoriten",noFavs:"Keine Favoriten",noFavsD:"Markiere einen Eintrag",
+    exp:"Exportieren",expHtml:"HTML",expTxt:"Text",expJson:"JSON",shareT:"Heute kopieren",
+    enterPin:"PIN eingeben",wds:"Wörter",rd:"Min Lesen",qMood:"Wie geht es dir?",
+    achStreak3:{t:"3 Tage",d:"3 Tage schreiben"},achStreak7:{t:"Woche",d:"7 Tage"},
+    achStreak30:{t:"Monat",d:"30 Tage"},ach10:{t:"10 Einträge",d:"10 Einträge"},
+    ach50:{t:"50 Einträge",d:"50 Einträge"},ach100:{t:"100",d:"100 Einträge"},
+    achWords1000:{t:"Schreiber",d:"1.000 Wörter"},achFav5:{t:"Sammler",d:"5 Favoriten"},
+    tagsList:["Arbeit","Familie","Gesundheit","Hobby","Liebe","Reise","Freunde","Lernen"],
+    prompts:["Was brachte dich heute zum Lächeln?","Beschreibe einen schönen Moment.","Wofür bist du dankbar?","Was hat dich herausgefordert?","Welche Farbe hätte heute?","Über jemanden der dich inspiriert hat.","Auf welchen Sieg bist du stolz?","Beschreibe deinen perfekten Morgen.","Was würdest du deinem früheren Ich sagen?","Welches Lied passt zu deiner Stimmung?"]},
+  ja:{home:"ホーム",search:"検索",write:"書く",stats:"統計",more:"その他",
+    mood:"気分",entry:"日記",tags:"タグ",color:"今日の色",
+    save:"保存",del:"削除",fav:"お気に入り",unfav:"お気に入り済",
+    streakDays:"日連続",startStreak:"始めましょう",entries:"件",
+    noEntry:"まだ日記がありません",noEntryD:"書くをタップして始めよう",
+    srchEmpty:"日記を検索",srchEmptySub:"キーワードを入力してください",
+    noRes:"結果なし",noResSub:"別のキーワードで",recent:"最近",
+    total:"合計",lstStreak:"最長連続",totWords:"書いた言葉",favs:"お気に入り",
+    days:"日",thisWeek:"今週",emojiF:"絵文字頻度",achs:"実績",topW:"よく使う言葉",
+    ap:"外観",lang:"言語",sec:"セキュリティ",pinLock:"PINロック",pinDesc:"4桁PIN",chgPin:"PIN変更",
+    data:"データ",clearAll:"すべて削除",favsLbl:"お気に入り",noFavs:"お気に入りなし",noFavsD:"日記をスター",
+    exp:"エクスポート",expHtml:"HTML",expTxt:"テキスト",expJson:"JSON",shareT:"今日をコピー",
+    enterPin:"PINを入力",wds:"語",rd:"分で読める",qMood:"今日の気分は？",
+    achStreak3:{t:"3日連続",d:"3日連続で書く"},achStreak7:{t:"週間",d:"7日連続"},
+    achStreak30:{t:"月間",d:"30日連続"},ach10:{t:"10件",d:"10件の日記"},
+    ach50:{t:"50件",d:"50件"},ach100:{t:"100件",d:"100件！"},
+    achWords1000:{t:"言葉の達人",d:"合計1,000語"},achFav5:{t:"コレクター",d:"5件お気に入り"},
+    tagsList:["仕事","家族","健康","趣味","愛","旅行","友達","学習"],
+    prompts:["今日笑顔になったのは？","美しいと感じた瞬間を書いて。","今感謝していることは？","今日の挑戦は何でしたか？","今日が色なら何色？","最近誰かに刺激を受けましたか？","小さな勝利は何ですか？","完璧な明日を描いて。","過去の自分に伝えるなら？","今の気分に合う曲は？"]},
+  zh:{home:"主页",search:"搜索",write:"写作",stats:"统计",more:"更多",
+    mood:"情绪",entry:"日记",tags:"标签",color:"今日颜色",
+    save:"保存",del:"删除",fav:"收藏",unfav:"已收藏",
+    streakDays:"天连续",startStreak:"开始你的连续记录",entries:"条",
+    noEntry:"还没有日记",noEntryD:"点击写作开始",
+    srchEmpty:"搜索你的日记",srchEmptySub:"输入关键词",
+    noRes:"没有结果",noResSub:"试试其他关键词",recent:"最近",
+    total:"总计",lstStreak:"最长连续",totWords:"写过的字",favs:"收藏",
+    days:"天",thisWeek:"本周",emojiF:"情绪频率",achs:"成就",topW:"常用词",
+    ap:"外观",lang:"语言",sec:"安全",pinLock:"PIN锁",pinDesc:"4位PIN",chgPin:"更改PIN",
+    data:"数据",clearAll:"清除所有",favsLbl:"收藏",noFavs:"暂无收藏",noFavsD:"为条目加星",
+    exp:"导出",expHtml:"HTML",expTxt:"文本",expJson:"JSON",shareT:"复制今天",
+    enterPin:"请输入PIN",wds:"字",rd:"分钟读完",qMood:"今天感觉如何？",
+    achStreak3:{t:"3天",d:"连续3天"},achStreak7:{t:"一周",d:"连续7天"},
+    achStreak30:{t:"一月",d:"连续30天"},ach10:{t:"10条",d:"10篇日记"},
+    ach50:{t:"50条",d:"50篇日记"},ach100:{t:"百篇",d:"100篇！"},
+    achWords1000:{t:"文字达人",d:"共1,000字"},achFav5:{t:"收藏家",d:"5篇收藏"},
+    tagsList:["工作","家庭","健康","爱好","爱情","旅行","朋友","学习"],
+    prompts:["今天什么让你微笑？","描述一个美丽的瞬间。","你现在感激什么？","今天遇到什么挑战？","如果今天是颜色会是什么？","写写最近激励你的人。","为哪个小胜利感到自豪？","描述你完美的明天。","你会对过去的自己说什么？","什么歌符合你现在的心情？"]},
+  ar:{home:"الرئيسية",search:"بحث",write:"اكتب",stats:"إحصاء",more:"المزيد",
+    mood:"الحالة",entry:"المدخل",tags:"الوسوم",color:"لون اليوم",
+    save:"حفظ",del:"حذف",fav:"إضافة للمفضلة",unfav:"في المفضلة",
+    streakDays:"أيام متتالية",startStreak:"ابدأ سلسلتك",entries:"مدخلات",
+    noEntry:"لا مدخلات بعد",noEntryD:"اضغط اكتب للبدء",
+    srchEmpty:"ابحث في يومياتك",srchEmptySub:"اكتب للبحث",
+    noRes:"لا نتائج",noResSub:"جرب كلمات أخرى",recent:"الأخيرة",
+    total:"الإجمالي",lstStreak:"أطول سلسلة",totWords:"الكلمات المكتوبة",favs:"المفضلة",
+    days:"أيام",thisWeek:"هذا الأسبوع",emojiF:"تكرار الحالة",achs:"الإنجازات",topW:"الكلمات الشائعة",
+    ap:"المظهر",lang:"اللغة",sec:"الأمان",pinLock:"قفل PIN",pinDesc:"PIN من 4 أرقام",chgPin:"تغيير PIN",
+    data:"البيانات",clearAll:"حذف الكل",favsLbl:"المفضلة",noFavs:"لا مفضلة",noFavsD:"نجّم مدخلًا",
+    exp:"تصدير",expHtml:"HTML",expTxt:"نص",expJson:"JSON",shareT:"نسخ اليوم",
+    enterPin:"أدخل رقم PIN",wds:"كلمة",rd:"دقيقة للقراءة",qMood:"كيف تشعر اليوم؟",
+    achStreak3:{t:"3 أيام",d:"3 أيام متتالية"},achStreak7:{t:"أسبوع",d:"7 أيام"},
+    achStreak30:{t:"شهر",d:"30 يومًا"},ach10:{t:"10 مدخلات",d:"10 مدخلات"},
+    ach50:{t:"50 مدخلًا",d:"50 مدخلًا"},ach100:{t:"المئة",d:"100 مدخل"},
+    achWords1000:{t:"نساج الكلمات",d:"1,000 كلمة"},achFav5:{t:"المجمّع",d:"5 مفضلة"},
+    tagsList:["عمل","عائلة","صحة","هواية","حب","سفر","أصدقاء","تعلم"],
+    prompts:["ما الذي جعلك تبتسم؟","صف لحظة جمال لاحظتها.","ما الذي تشكره الآن؟","ما الذي تحداك؟","لو كان اليوم له لون؟","اكتب عن شخص ألهمك.","ما الانتصار الصغير الذي تفخر به؟","صف غدك المثالي.","ماذا ستقول لنفسك في الماضي؟","ما الأغنية التي تناسب مزاجك؟"]}
+};
+
+// ════ DAY COLORS ════
+const DAY_COLORS = [
+  { hex:'#e8b4a0', name:'Peach' },
+  { hex:'#b4d4a8', name:'Sage' },
+  { hex:'#a8c8e4', name:'Sky' },
+  { hex:'#e4b8d8', name:'Rose' },
+  { hex:'#e8d8a0', name:'Sand' },
+  { hex:'#b8a8e4', name:'Lavender' },
+  { hex:'#a8d8d0', name:'Mint' },
+  { hex:'#d4c4a8', name:'Linen' },
+];
+const EMOJIS = ['😊','😄','😌','🥰','😢','😤','😴','🤔','😬','🥳','😩','😎','🤗','😐','🌟','😮','🤩','😔'];
+const MNS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DOW = {en:["S","M","T","W","T","F","S"],sv:["S","M","T","O","T","F","L"],ar:["أ","إ","ث","أ","خ","ج","س"]};
+
+// ════ STATE ════
+let S = {lang:'en',theme:'light',pin:null,pinEnabled:false,entries:{},calY:new Date().getFullYear(),calM:new Date().getMonth()};
+let curDate=null, pinBuf='', lpTimer=null, swY=0, moodDate=null, vpH=null;
+let readDate=null;
+
+function t(k){return T[S.lang]?.[k]??T.en?.[k]??k;}
+function tod(){return new Date().toISOString().slice(0,10);}
+function fmt(ds,o){return new Date(ds+'T12:00:00').toLocaleDateString(S.lang,o);}
+
+function ld(){try{const d=JSON.parse(localStorage.getItem('mdr3')||'{}');Object.assign(S,d);S.calY=new Date().getFullYear();S.calM=new Date().getMonth();}catch(e){}}
+function sv(){try{localStorage.setItem('mdr3',JSON.stringify({lang:S.lang,theme:S.theme,pin:S.pin,pinEnabled:S.pinEnabled,entries:S.entries}));}catch(e){}}
+
+// ════ BOOT ════
+window.addEventListener('load',()=>{
+  ld(); applyTheme(S.theme); applyLang(S.lang); updTBDate();
+  setTimeout(()=>{
+    document.getElementById('ld').classList.add('out');
+    document.getElementById('app').classList.add('show');
+    document.getElementById('savebar').classList.remove('vis');
+    if(S.pinEnabled&&S.pin) showPin();
+    else{rCal();rStats();rMore();}
+  },3100);
+});
+
+function updTBDate(){
+  const d=new Date();
+  document.getElementById('tb-date').innerHTML=`<strong>${d.toLocaleDateString(S.lang,{weekday:'short'})}</strong>${d.toLocaleDateString(S.lang,{month:'short',day:'numeric'})}`;
+}
+
+// ════ TAB SWITCH ════
+function sw(name){
+  document.querySelectorAll('.nt').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.getElementById('t-'+name).classList.add('active');
+  document.getElementById('page-'+name).classList.add('active');
+  if(name==='home')rCal();
+  if(name==='stats')rStats();
+  if(name==='more')rMore();
+  if(name==='search')setTimeout(()=>document.getElementById('sinput').focus(),220);
+}
+
+// ════ CALENDAR ════
+function rCal(){
+  document.getElementById('mname').textContent=`${MNS[S.calM]} ${S.calY}`;
+  updStreak();
+  const grid=document.getElementById('cgrid');grid.innerHTML='';
+  const dows=DOW[S.lang]||DOW.en;
+  dows.forEach(d=>{const el=document.createElement('div');el.className='cdow';el.textContent=d;grid.appendChild(el);});
+  const fd=new Date(S.calY,S.calM,1).getDay();
+  const dim=new Date(S.calY,S.calM+1,0).getDate();
+  const tds=tod();
+  for(let i=0;i<fd;i++){const el=document.createElement('div');el.className='cday empty';grid.appendChild(el);}
+  for(let d=1;d<=dim;d++){
+    const ds=`${S.calY}-${String(S.calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const e=S.entries[ds];
+    const el=document.createElement('div');
+    el.className='cday'+(e?' has':' no')+(ds===tds?' today':'');
+    // Day color background tint
+    if(e?.color){el.style.background=e.color+'30';}
+    el.innerHTML=e?.emoji?`<span class="de">${e.emoji}</span><span class="dn">${d}</span>`:`<span class="dn">${d}</span>`;
+    if(e?.color){const dot=document.createElement('div');dot.className='cdot';dot.style.background=e.color;el.appendChild(dot);}
+    el.addEventListener('click',()=>tapDay(ds));
+    el.addEventListener('touchstart',()=>{lpTimer=setTimeout(()=>{openMSheet(ds);},580);},{passive:true});
+    el.addEventListener('touchend',()=>clearTimeout(lpTimer));
+    el.addEventListener('touchmove',()=>clearTimeout(lpTimer));
+    grid.appendChild(el);
+  }
+  rRecent();
+}
+function cn(d){S.calM+=d;if(S.calM<0){S.calM=11;S.calY--;}if(S.calM>11){S.calM=0;S.calY++;}rCal();}
+
+// Tap on calendar day: today → edit, past with entry → read, past empty → edit
+function tapDay(ds){
+  const e=S.entries[ds];
+  if(e&&e.text&&ds!==tod()) openRead(ds);
+  else openEdit(ds);
+}
+
+function updStreak(){
+  const s=curStreak();
+  const total=Object.keys(S.entries).length;
+  const b=document.getElementById('streak');
+  document.getElementById('s-n').textContent=s;
+  document.getElementById('s-total').textContent=total;
+  document.getElementById('s-total-l').textContent=t('entries');
+  if(s>0){b.classList.remove('off');document.getElementById('s-l').textContent=t('streakDays');}
+  else{b.classList.add('off');document.getElementById('s-l').textContent=t('startStreak');}
+}
+
+function rRecent(){
+  document.getElementById('recent-hd').textContent=t('recent');
+  const r=document.getElementById('recent');
+  const rec=Object.entries(S.entries).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,4);
+  if(!rec.length){r.innerHTML=`<div class="empty-st"><div class="empty-ico">— —</div><div class="empty-ttl">${t('noEntry')}</div><div class="empty-sub">${t('noEntryD')}</div></div>`;return;}
+  r.innerHTML=rec.map(([ds,e])=>{
+    const colorBar=e.color?`<div class="ecard-color" style="background:${e.color}"></div>`:'';
+    return `<div class="ecard" onclick="tapDay('${ds}')">
+      ${colorBar}
+      <div class="ecard-head">
+        <span class="ecard-emoji">${e.emoji||''}</span>
+        <span class="ecard-date">${fmt(ds,{weekday:'long',month:'long',day:'numeric'})}</span>
+        ${e.favorite?`<span class="ecard-fav">Fav</span>`:''}
+      </div>
+      <div class="ecard-preview">${e.text||''}</div>
+      ${(e.tags||[]).length?`<div class="ecard-tags">${e.tags.map(tg=>`<span class="ecard-tag">${tg}</span>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ════ READ VIEW ════
+function openRead(ds){
+  readDate=ds;
+  const e=S.entries[ds]||{};
+  const d=new Date(ds+'T12:00:00');
+
+  document.getElementById('rv-dateline').textContent=fmt(ds,{weekday:'long',year:'numeric',month:'long',day:'numeric'}).toUpperCase();
+
+  // Headline: first sentence or first ~40 chars of text
+  const text=e.text||'';
+  const firstLine=text.split('\n')[0].trim();
+  const headline=firstLine.length>60?firstLine.slice(0,58)+'…':firstLine||fmt(ds,{weekday:'long',month:'long',day:'numeric'});
+  document.getElementById('rv-headline').textContent=headline;
+
+  // Mood
+  const mood=document.getElementById('rv-mood');
+  let moodHTML='';
+  if(e.emoji)moodHTML+=`<span class="rv-emoji">${e.emoji}</span>`;
+  if(e.tags&&e.tags.length)moodHTML+=`<span class="rv-mood-lbl">${e.tags.join(' · ')}</span>`;
+  if(e.color)moodHTML+=`<div class="rv-color-badge" style="background:${e.color}"></div>`;
+  mood.innerHTML=moodHTML||'<span class="rv-mood-lbl" style="color:var(--text3)">No mood recorded</span>';
+
+  // Body — skip first line if used as headline
+  const bodyText = (firstLine && text.startsWith(firstLine)) ? text.slice(firstLine.length).trimStart() : text;
+  const body=document.getElementById('rv-body');
+  if(bodyText){body.textContent=bodyText;body.style.display='block';}
+  else{body.textContent='';body.style.display='none';}
+
+  // Tags
+  const tagsEl=document.getElementById('rv-tags');
+  if(e.tags&&e.tags.length){tagsEl.innerHTML=e.tags.map(tg=>`<span class="rv-tag">${tg}</span>`).join('');tagsEl.style.display='flex';}
+  else tagsEl.style.display='none';
+
+  // If no text at all
+  if(!text){
+    document.getElementById('rv-body').innerHTML=`<div class="rv-empty">No words written yet.<br>Tap Edit to start writing.</div>`;
+    document.getElementById('rv-body').style.display='block';
+  }
+
+  document.getElementById('rv').classList.add('open');
+}
+
+function closeRead(){
+  document.getElementById('rv').classList.remove('open');
+  readDate=null;
+  rCal();
+}
+
+function openEditFromRead(){
+  const ds=readDate;
+  closeRead();
+  setTimeout(()=>openEdit(ds),80);
+}
+
+// Swipe down to close read view
+const rvEl=document.getElementById('rv');
+rvEl.addEventListener('touchstart',e=>{swY=e.touches[0].clientY;},{passive:true});
+rvEl.addEventListener('touchmove',e=>{
+  const dy=e.touches[0].clientY-swY;
+  const scroll=document.getElementById('rv-scroll');
+  if(dy>0&&!scroll.scrollTop)rvEl.style.transform=`translateY(${Math.min(dy*.4,50)}px)`;
+},{passive:true});
+rvEl.addEventListener('touchend',e=>{
+  const dy=e.changedTouches[0].clientY-swY;
+  rvEl.style.transform='';
+  if(dy>70&&!document.getElementById('rv-scroll').scrollTop)closeRead();
+});
+
+// ════ EDIT ════
+function openEdit(ds){
+  if(!ds)ds=tod();
+  curDate=ds;
+  const e=S.entries[ds]||{};
+  document.getElementById('eo-date').textContent=fmt(ds,{weekday:'short',month:'long',day:'numeric'});
+  document.getElementById('eo-back').textContent='← Back';
+
+  // emoji strip
+  const es=document.getElementById('emoji-strip');es.innerHTML='';
+  EMOJIS.forEach(em=>{
+    const b=document.createElement('div');b.className='esb'+(e.emoji===em?' sel':'');b.textContent=em;
+    b.addEventListener('click',()=>{es.querySelectorAll('.esb').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');});
+    es.appendChild(b);
+  });
+
+  // textarea
+  const ta=document.getElementById('eta');
+  ta.value=e.text||''; ta.placeholder=t('entry')+'…'; updWC();
+
+  // tags
+  const tw=document.getElementById('tags-wrap');tw.innerHTML='';
+  (t('tagsList')||[]).forEach(tg=>{
+    const p=document.createElement('div');
+    p.className='tpill'+((e.tags||[]).includes(tg)?' sel':'');
+    p.textContent=tg;p.onclick=()=>p.classList.toggle('sel');
+    tw.appendChild(p);
+  });
+
+  // color picker
+  const cp=document.getElementById('color-picker');cp.innerHTML='';
+  const noneBtn=document.createElement('div');noneBtn.className='cp-none'+((!e.color)?' sel':'');noneBtn.textContent='None';
+  noneBtn.onclick=()=>{cp.querySelectorAll('.cp-swatch,.cp-none').forEach(x=>x.classList.remove('sel'));noneBtn.classList.add('sel');};
+  cp.appendChild(noneBtn);
+  DAY_COLORS.forEach(c=>{
+    const s=document.createElement('div');
+    s.className='cp-swatch'+(e.color===c.hex?' sel':'');
+    s.style.background=c.hex;
+    s.title=c.name;
+    s.onclick=()=>{cp.querySelectorAll('.cp-swatch,.cp-none').forEach(x=>x.classList.remove('sel'));s.classList.add('sel');};
+    cp.appendChild(s);
+  });
+
+  // fav btn
+  const fb=document.getElementById('fav-btn');
+  fb.textContent=e.favorite?t('unfav'):t('fav');
+  fb.className='fav-btn'+(e.favorite?' on':'');
+
+  // labels
+  document.getElementById('chip-mood').textContent=t('mood');
+  document.getElementById('chip-entry').textContent=t('entry');
+  document.getElementById('chip-tags').textContent=t('tags');
+  document.getElementById('chip-color').textContent=t('color');
+  document.getElementById('sb-main').textContent=t('save');
+  newPr();
+
+  document.getElementById('eo').classList.add('open');
+  document.getElementById('savebar').classList.add('vis');
+  setupVP();
+}
+
+function closeEdit(){
+  document.getElementById('eo').classList.remove('open');
+  document.getElementById('savebar').classList.remove('vis');
+  document.getElementById('eta').blur();
+  cleanVP();
+  rCal();
+}
+
+function saveEntry(){
+  const ds=curDate;
+  const text=document.getElementById('eta').value.trim();
+  const emoji=document.querySelector('#emoji-strip .esb.sel')?.textContent||'';
+  const tags=Array.from(document.querySelectorAll('#tags-wrap .tpill.sel')).map(x=>x.textContent);
+  const selColor=document.querySelector('#color-picker .cp-swatch.sel');
+  const color=selColor?selColor.style.background:'';
+  if(!text&&!emoji){showToast('Nothing to save!');return;}
+  S.entries[ds]={...(S.entries[ds]||{}),text,emoji,tags,color,favorite:S.entries[ds]?.favorite||false};
+  sv();
+  const btn=document.getElementById('sb-main');
+  btn.textContent='Saved ✓';btn.style.background='var(--success)';
+  setTimeout(()=>{btn.textContent=t('save');btn.style.background='';},1600);
+  showToast('Saved');
+}
+
+function delEntry(){
+  if(!confirm('Delete this entry?'))return;
+  delete S.entries[curDate];sv();closeEdit();
+}
+
+function toggleFav(){
+  if(!S.entries[curDate]){saveEntry();}
+  if(!S.entries[curDate])return;
+  S.entries[curDate].favorite=!S.entries[curDate].favorite;
+  const fb=document.getElementById('fav-btn');
+  fb.textContent=S.entries[curDate].favorite?t('unfav'):t('fav');
+  fb.className='fav-btn'+(S.entries[curDate].favorite?' on':'');
+  sv();
+}
+
+function updWC(){
+  const tx=document.getElementById('eta').value;
+  const w=tx.trim().split(/\s+/).filter(Boolean).length;
+  document.getElementById('wc').textContent=`${w} ${t('wds')}`;
+  document.getElementById('rt').textContent=`~${Math.max(1,Math.ceil(w/200))} ${t('rd')}`;
+}
+
+function newPr(){
+  const p=t('prompts');
+  document.getElementById('prompt-tx').textContent=p[Math.floor(Math.random()*p.length)];
+}
+
+// Visual Viewport keyboard awareness
+function setupVP(){
+  if(!window.visualViewport)return;
+  vpH=()=>{const vv=window.visualViewport;const off=window.innerHeight-vv.height-vv.offsetTop;document.getElementById('savebar').style.transform=`translateY(-${Math.max(0,off)}px)`;};
+  window.visualViewport.addEventListener('resize',vpH);
+  window.visualViewport.addEventListener('scroll',vpH);
+}
+function cleanVP(){
+  if(!window.visualViewport||!vpH)return;
+  window.visualViewport.removeEventListener('resize',vpH);
+  window.visualViewport.removeEventListener('scroll',vpH);
+  document.getElementById('savebar').style.transform='';vpH=null;
+}
+
+// Swipe down to close edit
+const eoEl=document.getElementById('eo');
+eoEl.addEventListener('touchstart',e=>{swY=e.touches[0].clientY;},{passive:true});
+eoEl.addEventListener('touchmove',e=>{
+  const dy=e.touches[0].clientY-swY;
+  if(dy>0&&!document.getElementById('eo-scroll').scrollTop)eoEl.style.transform=`translateY(${Math.min(dy*.4,50)}px)`;
+},{passive:true});
+eoEl.addEventListener('touchend',e=>{
+  const dy=e.changedTouches[0].clientY-swY;
+  eoEl.style.transform='';
+  if(dy>70&&!document.getElementById('eo-scroll').scrollTop)closeEdit();
+});
+
+// ════ SEARCH ════
+function doSearch(q){
+  document.getElementById('sclr').style.display=q?'block':'none';
+  const res=document.getElementById('sres');
+  if(!q.trim()){res.innerHTML=`<div class="empty-st"><div class="empty-ico">— —</div><div class="empty-ttl">${t('srchEmpty')}</div><div class="empty-sub">${t('srchEmptySub')}</div></div>`;return;}
+  const ql=q.toLowerCase();
+  const m=Object.entries(S.entries).filter(([,e])=>(e.text||'').toLowerCase().includes(ql)||(e.tags||[]).some(tg=>tg.toLowerCase().includes(ql))).sort((a,b)=>b[0].localeCompare(a[0]));
+  if(!m.length){res.innerHTML=`<div class="empty-st"><div class="empty-ico">— —</div><div class="empty-ttl">${t('noRes')}</div><div class="empty-sub">${t('noResSub')}</div></div>`;return;}
+  const re=new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  res.innerHTML=m.map(([ds,e])=>{
+    const colorBar=e.color?`<div class="ecard-color" style="background:${e.color}"></div>`:'';
+    return `<div class="ecard" onclick="tapDay('${ds}')">
+      ${colorBar}
+      <div class="ecard-head"><span class="ecard-emoji">${e.emoji||''}</span><span class="ecard-date">${fmt(ds,{month:'short',day:'numeric',year:'numeric'})}</span>${e.favorite?`<span class="ecard-fav">Fav</span>`:''}</div>
+      <div class="ecard-preview">${(e.text||'').replace(re,'<mark>$1</mark>')}</div>
+      <div class="ecard-tags">${(e.tags||[]).map(tg=>`<span class="ecard-tag">${tg}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+function clrSearch(){document.getElementById('sinput').value='';doSearch('');}
+
+// ════ STATS ════
+function rStats(){
+  const vals=Object.values(S.entries);
+  const total=vals.length;
+  const words=vals.reduce((s,e)=>s+(e.text?e.text.split(/\s+/).filter(Boolean).length:0),0);
+  const favCount=vals.filter(e=>e.favorite).length;
+  const lstr=longestStreak();const cstr=curStreak();
+  const p=document.getElementById('page-stats');
+  p.innerHTML=`
+  <div class="stat-row"><div class="stc"><div class="stc-n">${total}</div><div class="stc-l">${t('total')}</div></div><div class="stc"><div class="stc-n">${lstr}</div><div class="stc-l">${t('lstStreak')} (${t('days')})</div></div></div>
+  <div class="stat-row"><div class="stc"><div class="stc-n">${words}</div><div class="stc-l">${t('totWords')}</div></div><div class="stc"><div class="stc-n">${favCount}</div><div class="stc-l">${t('favs')}</div></div></div>
+  ${cstr>0?`<div class="stc" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div><div class="stc-n">${cstr}</div><div class="stc-l">${t('streakDays')}</div></div></div>`:''}
+  <div class="s-ttl">${t('thisWeek')}</div>
+  <div class="chart-card"><div class="chart-lbl">${t('thisWeek')}</div><div class="bar-row" id="bar-row"></div></div>
+  <div class="s-ttl">${t('emojiF')}</div>
+  <div class="chart-card"><div class="ef-wrap" id="ef"></div></div>
+  <div class="s-ttl">${t('topW')}</div>
+  <div class="chart-card"><div class="wc-wrap" id="wc2"></div></div>
+  <div class="s-ttl">${t('achs')}</div>
+  <div class="ach-list" id="achl"></div><div style="height:18px"></div>`;
+
+  const br=document.getElementById('bar-row');
+  for(let i=6;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const ds=d.toISOString().slice(0,10);const has=!!S.entries[ds];
+    const col=document.createElement('div');col.className='bc';
+    col.innerHTML=`<div class="bs${has?'':' mt'}" style="height:${has?60:8}px"></div><div class="bd">${['S','M','T','W','T','F','S'][d.getDay()]}</div>`;
+    br.appendChild(col);
+  }
+  const ec={};vals.forEach(e=>{if(e.emoji)ec[e.emoji]=(ec[e.emoji]||0)+1;});
+  const ef=document.getElementById('ef');
+  const sorted=Object.entries(ec).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  if(!sorted.length)ef.innerHTML=`<span style="color:var(--text3);font-size:.8rem">No data yet</span>`;
+  else sorted.forEach(([em,cnt])=>{const el=document.createElement('div');el.className='ef-item';el.innerHTML=`<span class="ef-e">${em}</span><span class="ef-n">×${cnt}</span>`;ef.appendChild(el);});
+  const stop=new Set(['the','a','an','and','or','but','is','it','to','of','in','on','at','i','my','me','was','for','that','this','with','so','as','be','we','he','she','they','are','have','had','has','what','when','how','just','not','no','do','did','if','you','your']);
+  const wf={};vals.forEach(e=>{(e.text||'').toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).forEach(w=>{if(w.length>3&&!stop.has(w))wf[w]=(wf[w]||0)+1;});});
+  const wc2=document.getElementById('wc2');
+  const tw=Object.entries(wf).sort((a,b)=>b[1]-a[1]).slice(0,16);
+  if(!tw.length)wc2.innerHTML=`<span style="color:var(--text3);font-size:.8rem">No data yet</span>`;
+  else tw.forEach(([w,cnt])=>{const el=document.createElement('span');el.className='ww';el.textContent=w;el.style.fontSize=`${Math.min(1.05,.68+cnt*.13)}rem`;el.style.opacity=Math.min(1,.45+cnt*.14);wc2.appendChild(el);});
+  const ACHS=[
+    {icon:'',key:'achStreak3',ok:()=>longestStreak()>=3},
+    {icon:'',key:'achStreak7',ok:()=>longestStreak()>=7},
+    {icon:'',key:'achStreak30',ok:()=>longestStreak()>=30},
+    {icon:'',key:'ach10',ok:()=>total>=10},
+    {icon:'',key:'ach50',ok:()=>total>=50},
+    {icon:'',key:'ach100',ok:()=>total>=100},
+    {icon:'',key:'achWords1000',ok:()=>words>=1000},
+    {icon:'',key:'achFav5',ok:()=>favCount>=5},
+  ];
+  const EMOS=['🔥','⚡','👑','📝','📚','🏆','✍️','⭐'];
+  const al=document.getElementById('achl');
+  ACHS.forEach((a,i)=>{
+    const u=a.ok();const info=t(a.key)||{t:a.key,d:''};
+    const el=document.createElement('div');el.className='ach-item'+(u?'':' lk');
+    el.innerHTML=`<span class="ai-ico">${EMOS[i]}</span><div><div class="ai-ttl">${info.t}</div><div class="ai-desc">${info.d}</div></div><div class="ai-badge">${u?'Unlocked':'Locked'}</div>`;
+    al.appendChild(el);
+  });
+}
+
+// ════ MORE ════
+function rMore(){
+  const p=document.getElementById('page-more');
+  const favEntries=Object.entries(S.entries).filter(([,e])=>e.favorite).sort((a,b)=>b[0].localeCompare(a[0]));
+  p.innerHTML=`
+  <div class="mhd">${t('ap')}</div>
+  <div class="theme-row">
+    <div class="tb tb-light${S.theme==='light'?' act':''}" onclick="setTheme('light')">✓</div>
+    <div class="tb tb-dark${S.theme==='dark'?' act':''}" onclick="setTheme('dark')">✓</div>
+    <div class="tb tb-pastel${S.theme==='pastel'?' act':''}" onclick="setTheme('pastel')">✓</div>
+  </div>
+  <div class="mhd">${t('lang')}</div>
+  <div class="m-sec lang-wrap">
+    <select onchange="setLang(this.value)">
+      <option value="en"${S.lang==='en'?' selected':''}>English</option>
+      <option value="sv"${S.lang==='sv'?' selected':''}>Svenska</option>
+      <option value="es"${S.lang==='es'?' selected':''}>Español</option>
+      <option value="fr"${S.lang==='fr'?' selected':''}>Français</option>
+      <option value="de"${S.lang==='de'?' selected':''}>Deutsch</option>
+      <option value="ja"${S.lang==='ja'?' selected':''}>日本語</option>
+      <option value="zh"${S.lang==='zh'?' selected':''}>中文</option>
+      <option value="ar"${S.lang==='ar'?' selected':''}>العربية</option>
+    </select>
+  </div>
+  <div class="mhd">${t('favsLbl')}</div>
+  <div id="ml-favs">${favEntries.length===0
+    ?`<div class="m-sec"><div style="padding:18px 16px;color:var(--text3);font-size:.85rem;text-align:center">${t('noFavs')}</div></div>`
+    :favEntries.map(([ds,e])=>`<div class="ecard" onclick="tapDay('${ds}')"><div class="ecard-head"><span class="ecard-emoji">${e.emoji||''}</span><span class="ecard-date">${fmt(ds,{weekday:'short',month:'short',day:'numeric'})}</span></div><div class="ecard-preview">${e.text||''}</div></div>`).join('')
+  }</div>
+  <div class="mhd">${t('exp')}</div>
+  <div class="m-sec">
+    <div class="m-row" onclick="expHTML()"><span class="mr-lbl">${t('expHtml')}</span><span class="mr-arr">›</span></div>
+    <div class="m-row" onclick="expTxt()"><span class="mr-lbl">${t('expTxt')}</span><span class="mr-arr">›</span></div>
+    <div class="m-row" onclick="expJSON()"><span class="mr-lbl">${t('expJson')}</span><span class="mr-arr">›</span></div>
+    <div class="m-row" onclick="shareToday()"><span class="mr-lbl">${t('shareT')}</span><span class="mr-arr">›</span></div>
+  </div>
+  <div class="mhd">${t('sec')}</div>
+  <div class="m-sec">
+    <div class="m-row">
+      <div style="flex:1"><div class="mr-lbl">${t('pinLock')}</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">${t('pinDesc')}</div></div>
+      <label class="tgl"><input type="checkbox"${S.pinEnabled?' checked':''} onchange="togglePin(this.checked)"><div class="tsl"></div></label>
+    </div>
+    ${S.pinEnabled?`<div class="m-row" onclick="chgPin()"><span class="mr-lbl">${t('chgPin')}</span><span class="mr-arr">›</span></div>`:''}
+  </div>
+  <div class="mhd">${t('data')}</div>
+  <div class="m-sec">
+    <div class="m-row" onclick="clearAll()"><span class="mr-lbl" style="color:var(--danger)">${t('clearAll')}</span><span class="mr-arr">›</span></div>
+  </div>
+  <div style="height:20px"></div>`;
+}
+
+// ════ MOOD SHEET ════
+function openMSheet(ds){
+  moodDate=ds;
+  document.getElementById('mttl').textContent=t('qMood');
+  const g=document.getElementById('mgrid');g.innerHTML='';
+  const e=S.entries[ds]||{};
+  EMOJIS.slice(0,12).forEach(em=>{
+    const b=document.createElement('div');b.className='mb'+(e.emoji===em?' sel':'');b.textContent=em;
+    b.onclick=()=>{g.querySelectorAll('.mb').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');};
+    g.appendChild(b);
+  });
+  document.getElementById('msheet').classList.add('open');
+}
+function closeMSheet(e){
+  if(e.target.classList.contains('mbg')||e.target===document.getElementById('msheet'))
+    document.getElementById('msheet').classList.remove('open');
+}
+function saveMood(){
+  const sel=document.querySelector('#mgrid .mb.sel');
+  if(sel){S.entries[moodDate]={...(S.entries[moodDate]||{}),emoji:sel.textContent};sv();}
+  document.getElementById('msheet').classList.remove('open');
+  if(moodDate)openEdit(moodDate);
+}
+
+// ════ THEME / LANG ════
+function setTheme(th){S.theme=th;applyTheme(th);sv();rMore();}
+function applyTheme(th){
+  document.body.className=th==='light'?'':th==='dark'?'dk':'ps';
+  const mc=document.querySelector('meta[name="theme-color"]');
+  if(mc)mc.content={light:'#f9f6f1',dark:'#100f0c',pastel:'#fdf4fb'}[th];
+}
+function setLang(lang){S.lang=lang;applyLang(lang);sv();updTBDate();rCal();rStats();rMore();}
+function applyLang(lang){
+  document.documentElement.lang=lang;
+  document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+  ['home','search','write','stats','more'].forEach(k=>{
+    const el=document.getElementById('nl-'+k);if(el)el.textContent=T[lang]?.[k]||T.en[k];
+  });
+  const wb=document.getElementById('nl-write-btn');if(wb)wb.textContent=T[lang]?.write||T.en.write;
+  document.getElementById('p-sub').textContent=T[lang]?.enterPin||T.en.enterPin;
+}
+
+// ════ PIN ════
+function showPin(){pinBuf='';updPDots();document.getElementById('pin').classList.add('show');}
+function hidePin(){document.getElementById('pin').classList.remove('show');rCal();rStats();rMore();}
+function pk(key){
+  if(key==='back')pinBuf=pinBuf.slice(0,-1);
+  else if(key==='ok'){
+    if(pinBuf===S.pin){document.getElementById('perr').textContent='';hidePin();}
+    else{document.getElementById('perr').textContent='Incorrect PIN';pinBuf='';setTimeout(()=>document.getElementById('perr').textContent='',2000);}
+  }else{if(pinBuf.length<4)pinBuf+=key;}
+  updPDots();
+  if(pinBuf.length===4&&key!=='ok')setTimeout(()=>pk('ok'),180);
+}
+function updPDots(){for(let i=0;i<4;i++)document.getElementById('pd'+i).classList.toggle('on',i<pinBuf.length);}
+function togglePin(enabled){
+  if(enabled){const p=prompt('Set a 4-digit PIN:');if(!p||!/^\d{4}$/.test(p)){showToast('Must be 4 digits');rMore();return;}S.pin=p;S.pinEnabled=true;}
+  else S.pinEnabled=false;
+  sv();rMore();
+}
+function chgPin(){const p=prompt('New 4-digit PIN:');if(!p||!/^\d{4}$/.test(p)){showToast('Must be 4 digits');return;}S.pin=p;sv();showToast('PIN updated');}
+
+// ════ STREAK ════
+function curStreak(){let d=new Date(tod()),s=0;while(true){const ds=d.toISOString().slice(0,10);if(S.entries[ds]){s++;d.setDate(d.getDate()-1);}else break;}return s;}
+function longestStreak(){const k=Object.keys(S.entries).sort();if(!k.length)return 0;let max=1,cur=1;for(let i=1;i<k.length;i++){const diff=(new Date(k[i])-new Date(k[i-1]))/86400000;if(diff===1){cur++;max=Math.max(max,cur);}else cur=1;}return max;}
+
+// ════ EXPORT ════
+function expHTML(){const e=Object.entries(S.entries).sort((a,b)=>a[0].localeCompare(b[0]));const b=e.map(([ds,e])=>`<div class="e"><h2>${ds} ${e.emoji||''}</h2>${(e.tags||[]).length?`<div class="t">${e.tags.map(t=>`<span>${t}</span>`).join('')}</div>`:''}<p>${(e.text||'').replace(/\n/g,'<br>')}</p></div>`).join('');dl('myDiary.html',`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>myDiary</title><style>body{font-family:Georgia,serif;max-width:680px;margin:40px auto;padding:0 24px;background:#f9f6f1;color:#1a1612}h1{font-style:italic;color:#b8723f;font-size:2rem}.e{border-bottom:1px solid #e5ddd2;padding:2rem 0}h2{color:#b8723f;font-size:1.1rem}.t span{background:#f2ede5;padding:2px 10px;border-radius:20px;font-size:.75rem;margin:0 3px;display:inline-block}p{line-height:1.85;color:#5a5040;margin-top:.75rem}</style></head><body><h1>myDiary</h1>${b}</body></html>`,'text/html');showToast('Exported');}
+function expTxt(){dl('myDiary.txt',Object.entries(S.entries).sort((a,b)=>a[0].localeCompare(b[0])).map(([ds,e])=>`${ds} ${e.emoji||''}\n${'─'.repeat(40)}\n${e.text||''}\n\n`).join(''),'text/plain');showToast('Exported');}
+function expJSON(){dl('myDiary.json',JSON.stringify(S.entries,null,2),'application/json');showToast('Backup saved');}
+function shareToday(){const e=S.entries[tod()];if(!e?.text){showToast('No entry today');return;}navigator.clipboard.writeText(`${e.emoji||''} ${tod()}\n\n${e.text}`).then(()=>showToast('Copied')).catch(()=>showToast('Copy failed'));}
+function dl(n,c,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type}));a.download=n;a.click();}
+function clearAll(){if(!confirm('Clear ALL entries?'))return;S.entries={};sv();rCal();rStats();rMore();showToast('Cleared');}
+
+// ════ TOAST ════
+let tt;
+function showToast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2000);}
+</script>
+</body>
+</html>
