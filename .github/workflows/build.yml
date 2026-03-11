@@ -28,9 +28,24 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # BYGG DIN WEBBAPP HÄR (Viktigt innan Capacitor sync!)
-      - name: Build Web App
-        run: npm run build # Ändra detta om ditt bygg-kommando är något annat, t.ex. npx vite build
+      # Viktigt: Capacitor behöver webDir (t.ex. "www") med index.html i repo.
+      - name: Check webDir exists
+        run: |
+          if ! grep -q '"webDir"' capacitor.config.json 2>/dev/null; then
+            echo "capacitor.config.json saknar webDir eller finns inte."
+            ls -la
+            exit 1
+          fi
+          WEBDIR=$(node -e "console.log(require('./capacitor.config.json').webDir || '')")
+          if [ -z "$WEBDIR" ]; then
+            echo "webDir är tom i capacitor.config.json"
+            exit 1
+          fi
+          if [ ! -d "$WEBDIR" ]; then
+            echo "WebDir '$WEBDIR' saknas i repo. Lägg till din webapp (index.html) i den mappen."
+            ls -la
+            exit 1
+          fi
 
       - name: Add Android project if missing
         run: |
@@ -43,7 +58,6 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      # Ändrat till Java 17 för Gradle-kompatibilitet
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
