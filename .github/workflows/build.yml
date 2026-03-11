@@ -7,9 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_API_LEVEL: 33
-      ANDROID_BUILD_TOOLS: "33.0.2"
 
     steps:
       - name: Checkout repository
@@ -31,14 +28,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Capacitor core + plugins
-        run: |
-          npm install @capacitor/android --no-save
-          npm install @capacitor/geolocation --no-save
-          npm install @capacitor/filesystem --no-save
-          npm install @capacitor-community/speech-recognition --no-save
-          npm install @capacitor/status-bar --no-save
-          npm install @capacitor/splash-screen --no-save
+      # BYGG DIN WEBBAPP HÄR (Viktigt innan Capacitor sync!)
+      - name: Build Web App
+        run: npm run build # Ändra detta om ditt bygg-kommando är något annat, t.ex. npx vite build
 
       - name: Add Android project if missing
         run: |
@@ -48,87 +40,15 @@ jobs:
             echo "android/ exists — skipping cap add"
           fi
 
-      - name: Sync Capacitor (copy web assets + plugins)
+      - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Ensure android gradle files exist (debug)
-        run: |
-          if [ -d android ]; then
-            echo "android directory contents:"
-            ls -la android || true
-          else
-            echo "android directory missing after cap add/sync"
-            exit 1
-          fi
-
-      - name: Fix common Gradle null-project issue (project.rootProject -> rootProject)
-        run: |
-          # Find files containing project.rootProject and replace with rootProject
-          files=$(grep -Rls "project.rootProject" android || true)
-          if [ -n "$files" ]; then
-            echo "Replacing project.rootProject -> rootProject in:"
-            echo "$files"
-            sed -i 's/project.rootProject/rootProject/g' $files
-          else
-            echo "No occurrences of project.rootProject found."
-          fi
-
-      # ── PATCH AndroidManifest.xml ──────────────────────────────────
-      - name: Patch AndroidManifest — permissions + security (safe-guarded)
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ]; then
-            # Internet — krävs för OpenStreetMap-karttiles
-            sed -i 's|<uses-permission android:name="android.permission.INTERNET" />||g'  "$MANIFEST"
-            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
-
-            # Plats — för platsloggning i dagboken
-            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' "$MANIFEST"
-            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' "$MANIFEST"
-
-            # Mikrofon — för röst-till-text
-            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.RECORD_AUDIO" />' "$MANIFEST"
-
-            # Lagring — för backup-filer (Android 9 och äldre)
-            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />' "$MANIFEST"
-            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />' "$MANIFEST"
-
-            # Blockera okrypterad HTTP-trafik i <application>
-            sed -i 's/<application/<application android:usesCleartextTraffic="false"/' "$MANIFEST"
-
-            echo "=== Patched AndroidManifest.xml ==="
-            sed -n '1,200p' "$MANIFEST"
-          else
-            echo "AndroidManifest.xml not found - skipping manifest patch."
-          fi
-
-      # ── PATCH build.gradle — minSdkVersion ────────────────────────
-      - name: Patch build.gradle — minSdkVersion 26 (safe-guarded)
-        run: |
-          BUILD_GRADLE="android/app/build.gradle"
-          if [ -f "$BUILD_GRADLE" ]; then
-            sed -i 's/minSdkVersion [0-9]*/minSdkVersion 26/' "$BUILD_GRADLE"
-            echo "=== minSdkVersion ==="
-            grep "minSdkVersion" "$BUILD_GRADLE" || true
-          else
-            echo "android/app/build.gradle not found - skipping minSdkVersion patch."
-          fi
-
+      # Ändrat till Java 17 för Gradle-kompatibilitet
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          api-level: ${{ env.ANDROID_API_LEVEL }}
-          build-tools: ${{ env.ANDROID_BUILD_TOOLS }}
-          components: platform-tools,cmdline-tools
-
-      - name: Accept Android SDK licenses
-        run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+          java-version: '17'
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -140,23 +60,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Ensure gradlew executable
+      - name: Ensure gradlew is executable
         run: |
-          if [ -f android/gradlew ]; then
-            chmod +x android/gradlew
-          else
-            echo "gradlew not found in android/ - listing android/:"
-            ls -la android || true
-            # If gradlew is missing, attempt to create a wrapper (best-effort)
-            if command -v gradle >/dev/null 2>&1; then
-              echo "gradle CLI found - generating wrapper"
-              cd android
-              gradle wrapper || true
-              chmod +x gradlew || true
-            else
-              echo "No gradle CLI - gradlew missing. Build will likely fail."
-            fi
-          fi
+          cd android
+          chmod +x gradlew || true
 
       - name: Build APK (debug)
         run: |
