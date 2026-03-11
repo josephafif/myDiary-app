@@ -1,5 +1,22 @@
 {
   "appId": "com.myDiary.app",
   "appName": "myDiary",
-  "webDir": "www"
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SpeechRecognition": {},
+    "Filesystem": {},
+    "Geolocation": {},
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#f9f6f1"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 2800,
+      "backgroundColor": "#0e0c08",
+      "showSpinner": false
+    }
+  }
 }
