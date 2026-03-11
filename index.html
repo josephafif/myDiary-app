@@ -9,6 +9,8 @@
 <meta name="theme-color" content="#f9f6f1">
 <title>myDiary</title>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400;1,600&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 /* ── TOKENS ── */
 :root {
@@ -111,11 +113,110 @@ textarea, input { user-select: text; -webkit-user-select: text; -webkit-touch-ca
 }
 .tb-logo em { color: var(--accent); font-style: normal; }
 .tb-right {
-  font-size: .72rem; color: var(--text3);
-  text-align: right; line-height: 1.5;
+  display: flex; align-items: center; gap: 10px;
+}
+.tb-greeting {
+  text-align: right; line-height: 1.4;
   letter-spacing: .01em;
 }
-.tb-right strong { display: block; font-size: .82rem; color: var(--text2); font-weight: 600; }
+.tb-greeting-name { display: block; font-size: .82rem; color: var(--text2); font-weight: 700; }
+.tb-greeting-date { display: block; font-size: .7rem; color: var(--text3); }
+.tb-map-btn {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  display: none; align-items: center; justify-content: center;
+  cursor: pointer; touch-action: manipulation; font-size: 1rem;
+  transition: background .15s, transform .15s;
+  flex-shrink: 0;
+}
+.tb-map-btn.show { display: flex; }
+.tb-map-btn:active { transform: scale(.88); background: var(--accent-lt); }
+
+/* ── MAP OVERLAY ── */
+#mapview {
+  position: fixed; inset: 0; z-index: 250;
+  background: var(--bg);
+  transform: translateY(100%);
+  transition: transform .38s var(--ease);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#mapview.open { transform: translateY(0); }
+.mv-top {
+  flex-shrink: 0;
+  padding: calc(env(safe-area-inset-top) + 12px) 18px 12px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg); transition: background .3s;
+  border-bottom: 1px solid var(--border); z-index: 2;
+}
+.mv-back {
+  font-size: .85rem; font-weight: 700; color: var(--text3);
+  cursor: pointer; touch-action: manipulation;
+  padding: 6px 0; letter-spacing: .04em; transition: color .15s;
+}
+.mv-back:active { color: var(--accent); }
+.mv-title {
+  font-family: 'Lora', serif; font-style: italic;
+  font-size: 1.1rem; color: var(--text); flex: 1;
+}
+.mv-count {
+  font-size: .72rem; color: var(--text3); font-weight: 600;
+  background: var(--surface2); padding: 3px 10px; border-radius: 20px;
+}
+#map-container {
+  flex: 1; position: relative;
+}
+#leaflet-map { width: 100%; height: 100%; }
+
+/* Leaflet customisation */
+.leaflet-container { background: var(--bg); font-family: 'Nunito', sans-serif; }
+.diary-pin {
+  width: 36px; height: 36px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--accent); border: 2.5px solid #fff;
+  box-shadow: 0 3px 10px rgba(0,0,0,.22);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .18s;
+}
+.diary-pin-inner {
+  transform: rotate(45deg);
+  font-size: 14px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Map entry popup (bottom sheet style) */
+#map-popup {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 1000;
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  padding: 14px 18px calc(18px + env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 24px rgba(0,0,0,.14);
+  transform: translateY(100%);
+  transition: transform .32s var(--ease);
+  pointer-events: none;
+}
+#map-popup.open {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.mp-handle { width: 36px; height: 3px; border-radius: 2px; background: var(--border); margin: 0 auto 14px; }
+.mp-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.mp-emoji { font-size: 1.8rem; flex-shrink: 0; }
+.mp-meta { flex: 1; }
+.mp-date { font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 2px; }
+.mp-headline { font-family: 'Lora', serif; font-size: 1rem; color: var(--text); line-height: 1.3; }
+.mp-loc { font-size: .72rem; color: var(--text3); margin-top: 2px; }
+.mp-preview { font-size: .84rem; color: var(--text2); line-height: 1.65; margin-bottom: 14px;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.mp-actions { display: flex; gap: 10px; }
+
+/* Empty map state */
+.map-empty {
+  position: absolute; inset: 0; display: flex;
+  flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px; text-align: center; pointer-events: none;
+}
+.map-empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: .4; }
+.map-empty-title { font-family: 'Lora', serif; font-size: 1.05rem; color: var(--text2); margin-bottom: 6px; }
+.map-empty-sub { font-size: .82rem; color: var(--text3); line-height: 1.6; }
 
 /* ── PAGES ── */
 #pages { flex: 1; overflow: hidden; position: relative; min-height: 0; }
@@ -605,6 +706,111 @@ mark { background: var(--accent-lt); color: var(--accent); border-radius: 2px; p
   transition: transform .3s var(--ease), background .3s, border-color .3s;
 }
 #savebar.vis { transform: translateY(0); }
+
+/* ── BACKUP MODAL ── */
+#bkmodal {
+  position: fixed; inset: 0; z-index: 650;
+  pointer-events: none;
+}
+#bkmodal.open { pointer-events: auto; }
+#bkmodal .bkbg {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0); transition: background .3s;
+}
+#bkmodal.open .bkbg { background: rgba(0,0,0,.48); }
+.bkpanel {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-radius: 22px 22px 0 0;
+  padding: 0 0 calc(20px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform .38s var(--ease);
+  max-height: 92vh; display: flex; flex-direction: column;
+}
+#bkmodal.open .bkpanel { transform: translateY(0); }
+.bkhandle { width: 36px; height: 3px; border-radius: 2px; background: var(--border); margin: 14px auto 0; flex-shrink: 0; }
+.bkhead { padding: 14px 18px 4px; flex-shrink: 0; }
+.bkhead-title { font-family: 'Lora', serif; font-size: 1.05rem; color: var(--text); }
+.bkhead-sub { font-size: .74rem; color: var(--text3); margin-top: 3px; line-height: 1.5; }
+.bkscroll { flex: 1; overflow-y: auto; padding: 10px 14px 4px; scrollbar-width: none; }
+.bkscroll::-webkit-scrollbar { display: none; }
+
+/* Section headers inside modal */
+.bk-sh {
+  font-size: .6rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text3); padding: 12px 4px 6px;
+}
+.bk-sh:first-child { padding-top: 4px; }
+
+/* Auto backup list */
+.bk-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
+.bk-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface2); border-radius: var(--r-sm);
+  padding: 11px 14px; border: 1.5px solid var(--border);
+}
+.bk-item-icon { font-size: 1.2rem; flex-shrink: 0; }
+.bk-item-body { flex: 1; min-width: 0; }
+.bk-item-date { font-size: .82rem; font-weight: 700; color: var(--text); }
+.bk-item-meta { font-size: .7rem; color: var(--text3); margin-top: 1px; }
+.bk-item-actions { display: flex; gap: 6px; }
+.bk-sm-btn {
+  font-size: .72rem; font-weight: 700; padding: 5px 10px; border-radius: 8px;
+  border: none; cursor: pointer; touch-action: manipulation;
+  background: var(--surface3); color: var(--text2);
+  transition: filter .15s, transform .15s; white-space: nowrap;
+}
+.bk-sm-btn:active { filter: brightness(.9); transform: scale(.94); }
+.bk-sm-btn.primary { background: var(--accent-lt); color: var(--accent); }
+.bk-empty {
+  padding: 20px 14px; text-align: center;
+  font-size: .82rem; color: var(--text3); font-style: italic;
+}
+
+/* Keep-days row */
+.bk-keep-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface2); border-radius: var(--r-sm);
+  padding: 12px 14px; border: 1.5px solid var(--border); margin-bottom: 4px;
+}
+.bk-keep-lbl { flex: 1; font-size: .85rem; font-weight: 600; color: var(--text2); }
+.bk-keep-ctrl { display: flex; align-items: center; gap: 8px; }
+.bk-keep-n { font-family: 'Lora', serif; font-size: 1.1rem; font-weight: 600; color: var(--accent); min-width: 24px; text-align: center; }
+.bk-step {
+  width: 30px; height: 30px; border-radius: 8px; border: none;
+  background: var(--surface3); color: var(--text2); font-size: 1rem; font-weight: 700;
+  cursor: pointer; touch-action: manipulation; display: flex; align-items: center; justify-content: center;
+  transition: background .15s, transform .15s;
+}
+.bk-step:active { background: var(--accent-lt); transform: scale(.88); }
+
+/* Progress spinner */
+.bk-spinner {
+  display: none; width: 18px; height: 18px; border-radius: 50%;
+  border: 2.5px solid var(--accent-lt); border-top-color: var(--accent);
+  animation: bkspin .7s linear infinite; flex-shrink: 0;
+}
+.bk-spinner.show { display: block; }
+@keyframes bkspin { to { transform: rotate(360deg); } }
+
+/* Import zone */
+.bk-import-zone {
+  border: 2px dashed var(--border); border-radius: var(--r);
+  padding: 18px; text-align: center; margin-bottom: 4px;
+  cursor: pointer; touch-action: manipulation;
+  transition: border-color .2s, background .2s;
+  background: var(--surface2);
+}
+.bk-import-zone:active { border-color: var(--accent); background: var(--accent-lt); }
+.bk-import-icon { font-size: 1.6rem; margin-bottom: 6px; }
+.bk-import-lbl { font-size: .82rem; font-weight: 600; color: var(--text2); }
+.bk-import-sub { font-size: .72rem; color: var(--text3); margin-top: 3px; }
+.bk-enc-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: var(--success); color: #fff; padding: 2px 8px; border-radius: 20px;
+  margin-top: 8px;
+}
+
 .sb-del {
   width: 48px; height: 48px; border-radius: 13px; flex-shrink: 0;
   background: var(--surface2); border: 1.5px solid var(--border);
@@ -697,9 +903,452 @@ mark { background: var(--accent-lt); color: var(--accent); border-radius: 2px; p
 /* ── RIPPLE ── */
 .rpl { position: absolute; border-radius: 50%; background: rgba(184,114,63,.18); transform: scale(0); animation: rpl .5s linear; pointer-events: none; }
 @keyframes rpl { to { transform: scale(4); opacity: 0; } }
+
+/* ── ONBOARDING ── */
+#onb {
+  position: fixed; inset: 0; z-index: 8000;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  opacity: 0; visibility: hidden;
+  transition: opacity .4s var(--ease), visibility .4s var(--ease);
+}
+#onb.vis { opacity: 1; visibility: visible; }
+
+/* Progress bar — pinned at top */
+.onb-prog-wrap {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--bg); padding: 16px 28px 0;
+  display: flex; justify-content: center;
+  transition: background .3s;
+  flex-shrink: 0;
+}
+.onb-progress { display: flex; gap: 6px; align-items: center; }
+.onb-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: background .3s, width .3s, border-radius .3s; }
+.onb-dot.on { background: var(--accent); width: 20px; border-radius: 3px; }
+
+/* Step wrapper */
+.onb-body {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 24px 28px 40px;
+}
+.onb-step {
+  display: none; width: 100%; max-width: 360px;
+  flex-direction: column; align-items: center;
+  animation: onbIn .28s var(--ease) both;
+}
+.onb-step.active { display: flex; }
+@keyframes onbIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Welcome step */
+.onb-welcome-art {
+  width: 90px; height: 90px; border-radius: 26px;
+  background: var(--accent-lt); display: flex; align-items: center; justify-content: center;
+  font-size: 2.4rem; margin-bottom: 24px;
+  box-shadow: 0 8px 32px rgba(184,114,63,.18);
+}
+.onb-logo {
+  font-family: 'Lora', serif; font-style: italic;
+  font-size: 2.2rem; color: var(--text); margin-bottom: 8px; text-align: center;
+}
+.onb-logo em { color: var(--accent); font-style: normal; }
+.onb-tagline {
+  font-size: .78rem; color: var(--text3); letter-spacing: .14em;
+  text-transform: uppercase; margin-bottom: 40px; text-align: center;
+}
+
+/* Question heading */
+.onb-q {
+  font-family: 'Lora', serif; font-size: 1.25rem;
+  color: var(--text); text-align: center; margin-bottom: 28px;
+  line-height: 1.45; width: 100%;
+}
+
+/* Text input */
+.onb-input {
+  width: 100%; padding: 15px 16px; border-radius: var(--r);
+  border: 1.5px solid var(--border); background: var(--surface);
+  font-family: 'Nunito', sans-serif; font-size: 1rem; color: var(--text);
+  outline: none; text-align: center; margin-bottom: 20px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.onb-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lt); }
+
+/* CTA button */
+.onb-btn {
+  width: 100%; height: 52px; border-radius: 14px;
+  background: var(--accent); border: none;
+  font-family: 'Nunito', sans-serif; font-size: .97rem; font-weight: 700;
+  color: #fff; cursor: pointer; touch-action: manipulation;
+  transition: transform .15s, filter .15s;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(184,114,63,.28);
+}
+.onb-btn:active { transform: scale(.97); filter: brightness(.92); }
+.onb-skip {
+  font-size: .82rem; color: var(--text3); cursor: pointer;
+  padding: 10px 20px; touch-action: manipulation;
+  transition: color .15s; border-radius: 8px;
+}
+.onb-skip:active { color: var(--accent); }
+
+/* Theme picker — redesigned */
+.onb-themes { display: flex; gap: 12px; margin-bottom: 28px; width: 100%; }
+.onb-th {
+  flex: 1; height: 108px; border-radius: 16px;
+  border: 2.5px solid transparent; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px;
+  transition: transform .18s var(--ease), border-color .18s, box-shadow .18s;
+  touch-action: manipulation;
+}
+.onb-th:active { transform: scale(.92); }
+.onb-th.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lt); }
+.onb-th-light { background: #f9f6f1; }
+.onb-th-dark { background: #1a1814; }
+.onb-th-pastel { background: #fdf4fb; }
+.onb-th-dot { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
+.onb-th-light .onb-th-dot { background: #b8723f; }
+.onb-th-dark .onb-th-dot { background: #cc8c58; }
+.onb-th-pastel .onb-th-dot { background: #b85bac; }
+.onb-th-label { font-size: .65rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.onb-th-light .onb-th-label { color: #b0a598; }
+.onb-th-dark .onb-th-label { color: #554e45; }
+.onb-th-pastel .onb-th-label { color: #b898b0; }
+
+/* Language select */
+.onb-select-wrap {
+  width: 100%; position: relative; margin-bottom: 24px;
+}
+.onb-select {
+  width: 100%; padding: 15px 44px 15px 16px; border-radius: var(--r);
+  border: 1.5px solid var(--border); background: var(--surface);
+  font-family: 'Nunito', sans-serif; font-size: .97rem; color: var(--text);
+  outline: none; appearance: none; cursor: pointer;
+  transition: border-color .2s;
+}
+.onb-select:focus { border-color: var(--accent); }
+.onb-select-arr {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--text3); font-size: .9rem; pointer-events: none;
+}
+
+/* Location card */
+.onb-loc-card {
+  width: 100%; background: var(--surface); border-radius: var(--r);
+  padding: 18px; margin-bottom: 20px; border: 1.5px solid var(--border);
+  box-shadow: 0 1px 4px rgba(26,22,18,.05);
+}
+.onb-loc-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.onb-loc-icon { font-size: 1.4rem; flex-shrink: 0; }
+.onb-loc-title { font-weight: 700; font-size: .92rem; flex: 1; }
+.onb-loc-desc { font-size: .78rem; color: var(--text3); line-height: 1.6; margin-bottom: 0; }
+.onb-loc-priv {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
+}
+.onb-loc-priv-icon { font-size: .9rem; flex-shrink: 0; line-height: 1.4; }
+.onb-loc-priv-text { font-size: .73rem; color: var(--text3); line-height: 1.55; }
+
+/* Done step */
+.onb-done-anim {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: var(--accent-lt); display: flex; align-items: center; justify-content: center;
+  font-size: 2.2rem; margin-bottom: 20px;
+  animation: onbPop .5s .1s var(--ease) both;
+}
+@keyframes onbPop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.onb-done-name {
+  font-family: 'Lora', serif; font-size: 1.5rem;
+  color: var(--text); margin-bottom: 8px; text-align: center;
+}
+.onb-done-sub {
+  font-size: .84rem; color: var(--text3); margin-bottom: 36px;
+  text-align: center; line-height: 1.65; width: 100%;
+}
+
+/* ── VOICE MODAL ── */
+#vmodal {
+  position: fixed; inset: 0; z-index: 600;
+  pointer-events: none;
+}
+#vmodal.open { pointer-events: auto; }
+#vmodal .vmbg {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0); transition: background .3s;
+}
+#vmodal.open .vmbg { background: rgba(0,0,0,.45); }
+.vpanel {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-radius: 22px 22px 0 0;
+  padding: 0 0 calc(20px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform .38s var(--ease);
+  max-height: 88vh; display: flex; flex-direction: column;
+}
+#vmodal.open .vpanel { transform: translateY(0); }
+.vhandle { width: 36px; height: 3px; border-radius: 2px; background: var(--border); margin: 14px auto 0; flex-shrink: 0; }
+.vhead { display: flex; align-items: center; padding: 14px 18px 12px; gap: 12px; flex-shrink: 0; }
+.vhead-title { font-family: 'Lora', serif; font-size: 1.05rem; flex: 1; }
+.vclose { font-size: .85rem; color: var(--text3); font-weight: 700; cursor: pointer; touch-action: manipulation; padding: 4px; }
+.vtabs { display: flex; gap: 0; padding: 0 18px 14px; flex-shrink: 0; }
+.vtab {
+  flex: 1; padding: 9px 0; text-align: center;
+  font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text3); cursor: pointer; touch-action: manipulation;
+  border-bottom: 2px solid var(--border);
+  transition: color .2s, border-color .2s;
+}
+.vtab.active { color: var(--accent); border-color: var(--accent); }
+.vbody { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 18px 14px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.vbody::-webkit-scrollbar { display: none; }
+
+/* Voice lang row */
+.vlang-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding: 10px 14px; background: var(--surface2); border-radius: var(--r-sm); }
+.vlang-lbl { font-size: .78rem; color: var(--text2); font-weight: 600; flex: 1; }
+.vlang-select { font-family: 'Nunito', sans-serif; font-size: .82rem; color: var(--text); background: transparent; border: none; outline: none; cursor: pointer; }
+
+/* Free mode */
+.vfree { display: none; flex-direction: column; align-items: center; padding-top: 8px; }
+.vfree.show { display: flex; }
+.vmic-btn {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: var(--accent); border: none;
+  font-size: 1.8rem; cursor: pointer; touch-action: manipulation;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(184,114,63,.3);
+  transition: transform .18s var(--ease), filter .15s, box-shadow .18s;
+  position: relative; overflow: hidden; flex-shrink: 0;
+}
+.vmic-btn:active { transform: scale(.91); }
+.vmic-btn.recording {
+  animation: vmpulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(184,114,63,.4);
+  background: var(--danger);
+}
+@keyframes vmpulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(201,64,64,.4); }
+  50% { box-shadow: 0 0 0 18px rgba(201,64,64,0); }
+}
+.vmic-status { font-size: .8rem; color: var(--text3); margin: 14px 0 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.vtranscript {
+  width: 100%; min-height: 80px; background: var(--surface2);
+  border-radius: var(--r); padding: 14px; margin-bottom: 14px;
+  font-size: .92rem; color: var(--text2); line-height: 1.7;
+  word-break: break-word; white-space: pre-wrap;
+  border: 1.5px solid var(--border);
+}
+.vtranscript .interim { color: var(--text3); font-style: italic; }
+.vfree-actions { display: flex; gap: 10px; width: 100%; }
+.vact-btn {
+  flex: 1; height: 46px; border-radius: 12px; border: none;
+  font-family: 'Nunito', sans-serif; font-size: .85rem; font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
+  background: var(--surface2); color: var(--text2);
+  transition: transform .15s, filter .15s;
+}
+.vact-btn:active { transform: scale(.96); filter: brightness(.94); }
+.vact-btn.primary { background: var(--accent); color: #fff; }
+
+/* Guided mode */
+.vguided { display: none; flex-direction: column; }
+.vguided.show { display: flex; }
+.vg-progress { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+.vg-step { font-size: .7rem; font-weight: 700; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; flex: 1; }
+.vg-dots { display: flex; gap: 4px; }
+.vg-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background .3s; }
+.vg-dot.done { background: var(--accent); }
+.vg-dot.cur { background: var(--accent); width: 20px; border-radius: 4px; }
+.vg-question {
+  background: var(--accent-lt); border-radius: var(--r-sm);
+  padding: 14px 16px; margin-bottom: 16px;
+  border-left: 3px solid var(--accent);
+  font-family: 'Lora', serif; font-size: 1rem;
+  color: var(--text); line-height: 1.5;
+}
+.vg-answer {
+  background: var(--surface2); border-radius: var(--r-sm);
+  padding: 12px 14px; margin-bottom: 14px;
+  font-size: .9rem; color: var(--text2); line-height: 1.65;
+  min-height: 52px; border: 1.5px solid var(--border);
+  word-break: break-word; white-space: pre-wrap;
+  transition: border-color .2s;
+}
+.vg-answer.listening { border-color: var(--danger); }
+.vg-answer .interim { color: var(--text3); font-style: italic; }
+.vg-answer-ph { color: var(--text3); font-style: italic; font-size: .85rem; }
+.vg-mic-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.vg-mic {
+  width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
+  background: var(--accent); border: none; font-size: 1.3rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; touch-action: manipulation;
+  box-shadow: 0 3px 12px rgba(184,114,63,.25);
+  transition: transform .15s, filter .15s;
+}
+.vg-mic:active { transform: scale(.91); }
+.vg-mic.recording { background: var(--danger); animation: vmpulse 1.2s ease-in-out infinite; }
+.vg-mic-hint { font-size: .78rem; color: var(--text3); line-height: 1.5; }
+.vg-nav { display: flex; gap: 10px; margin-top: 4px; }
+.vg-result {
+  display: none; background: var(--surface2); border-radius: var(--r);
+  padding: 16px; margin-bottom: 14px; font-size: .92rem;
+  color: var(--text2); line-height: 1.75; white-space: pre-wrap;
+  word-break: break-word; border: 1.5px solid var(--border);
+}
+.vg-result.show { display: block; }
+.vg-result-lbl { font-size: .65rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+
+/* Mic button in edit overlay */
+.voice-trigger {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: var(--r-sm);
+  background: var(--surface); border: 1.5px solid var(--border);
+  cursor: pointer; touch-action: manipulation;
+  margin-bottom: 8px;
+  transition: border-color .2s, background .15s;
+}
+.voice-trigger:active { background: var(--surface2); }
+.voice-trigger .vt-icon { font-size: 1.1rem; }
+.voice-trigger .vt-label { font-size: .82rem; font-weight: 600; color: var(--text2); flex: 1; }
+.voice-trigger .vt-arr { font-size: .75rem; color: var(--text3); }
+
+/* ── ENTRY TEMPLATES ── */
+#tmodal {
+  position: fixed; inset: 0; z-index: 600;
+  pointer-events: none;
+}
+#tmodal.open { pointer-events: auto; }
+#tmodal .tmbg {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0); transition: background .3s;
+}
+#tmodal.open .tmbg { background: rgba(0,0,0,.45); }
+.tpanel {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-radius: 22px 22px 0 0;
+  padding: 0 0 calc(20px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform .38s var(--ease);
+  max-height: 80vh; display: flex; flex-direction: column;
+}
+#tmodal.open .tpanel { transform: translateY(0); }
+.thandle { width: 36px; height: 3px; border-radius: 2px; background: var(--border); margin: 14px auto 0; flex-shrink: 0; }
+.thead { padding: 14px 18px 10px; flex-shrink: 0; }
+.thead-title { font-family: 'Lora', serif; font-size: 1.05rem; color: var(--text); }
+.thead-sub { font-size: .76rem; color: var(--text3); margin-top: 2px; }
+.tscroll { flex: 1; overflow-y: auto; padding: 6px 14px 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.tscroll::-webkit-scrollbar { display: none; }
+.tcard {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 14px 16px; border-radius: var(--r);
+  background: var(--surface2); margin-bottom: 8px;
+  cursor: pointer; touch-action: manipulation;
+  border: 1.5px solid transparent;
+  transition: border-color .18s, transform .18s, background .15s;
+}
+.tcard:active { transform: scale(.98); background: var(--surface3); }
+.tcard.sel { border-color: var(--accent); background: var(--accent-lt); }
+.tcard-icon { font-size: 1.6rem; flex-shrink: 0; line-height: 1; margin-top: 1px; }
+.tcard-body { flex: 1; }
+.tcard-name { font-weight: 700; font-size: .9rem; color: var(--text); margin-bottom: 2px; }
+.tcard-desc { font-size: .75rem; color: var(--text3); line-height: 1.5; }
+.tcard-preview {
+  font-size: .72rem; color: var(--text3); margin-top: 6px;
+  font-style: italic; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.tactions { display: flex; gap: 10px; padding: 10px 14px 0; flex-shrink: 0; }
+
 </style>
 </head>
 <body>
+
+<!-- ONBOARDING -->
+<div id="onb">
+  <div class="onb-prog-wrap">
+    <div class="onb-progress" id="onb-progress"></div>
+  </div>
+  <div class="onb-body">
+    <!-- Step 0: Welcome -->
+    <div class="onb-step active" id="onbs-0">
+      <div class="onb-welcome-art">📖</div>
+      <div class="onb-logo">my<em>Diary</em></div>
+      <div class="onb-tagline" id="onb-tagline">Your private space to reflect</div>
+      <button class="onb-btn" id="onb-welcome-btn" onclick="onbNext()">Get Started</button>
+    </div>
+    <!-- Step 1: Name -->
+    <div class="onb-step" id="onbs-1">
+      <div class="onb-q" id="onb-q-name">What should we call you?</div>
+      <input class="onb-input" id="onb-name-in" type="text" maxlength="32" placeholder="Your name…" autocomplete="off">
+      <button class="onb-btn" id="onb-name-btn" onclick="onbNext()">Continue</button>
+      <div class="onb-skip" onclick="onbNext()">Skip</div>
+    </div>
+    <!-- Step 2: Theme -->
+    <div class="onb-step" id="onbs-2">
+      <div class="onb-q" id="onb-q-theme">Choose your theme</div>
+      <div class="onb-themes">
+        <div class="onb-th onb-th-light sel" id="onb-th-light" onclick="onbTheme('light')">
+          <div class="onb-th-dot"></div>
+          <span class="onb-th-label">Light</span>
+        </div>
+        <div class="onb-th onb-th-dark" id="onb-th-dark" onclick="onbTheme('dark')">
+          <div class="onb-th-dot"></div>
+          <span class="onb-th-label">Dark</span>
+        </div>
+        <div class="onb-th onb-th-pastel" id="onb-th-pastel" onclick="onbTheme('pastel')">
+          <div class="onb-th-dot"></div>
+          <span class="onb-th-label">Pastel</span>
+        </div>
+      </div>
+      <button class="onb-btn" onclick="onbNext()">Continue</button>
+    </div>
+    <!-- Step 3: Language -->
+    <div class="onb-step" id="onbs-3">
+      <div class="onb-q" id="onb-q-lang">What language do you prefer?</div>
+      <div class="onb-select-wrap">
+        <select class="onb-select" id="onb-lang-sel" onchange="onbLangChange(this.value)">
+          <option value="en">English</option>
+          <option value="sv">Svenska</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="ja">日本語</option>
+          <option value="zh">中文</option>
+          <option value="ar">العربية</option>
+        </select>
+        <span class="onb-select-arr">›</span>
+      </div>
+      <button class="onb-btn" onclick="onbNext()">Continue</button>
+    </div>
+    <!-- Step 4: Location -->
+    <div class="onb-step" id="onbs-4">
+      <div class="onb-q" id="onb-q-loc">Location for entries?</div>
+      <div class="onb-loc-card">
+        <div class="onb-loc-row">
+          <div class="onb-loc-icon">📍</div>
+          <div class="onb-loc-title" id="onb-loc-title">Log where you write</div>
+          <label class="tgl"><input type="checkbox" id="onb-loc-toggle"><div class="tsl"></div></label>
+        </div>
+        <div class="onb-loc-desc" id="onb-loc-desc">Optionally attach a location to each diary entry.</div>
+        <div class="onb-loc-priv">
+          <div class="onb-loc-priv-icon">🔒</div>
+          <div class="onb-loc-priv-text" id="onb-loc-priv">Your location is stored only on your device. Only you can see it — not even we have access to it.</div>
+        </div>
+      </div>
+      <button class="onb-btn" onclick="onbNext()">Continue</button>
+      <div class="onb-skip" onclick="onbNext()">Skip</div>
+    </div>
+    <!-- Step 5: Done -->
+    <div class="onb-step" id="onbs-5">
+      <div class="onb-done-anim">✨</div>
+      <div class="onb-done-name" id="onb-done-name">You're all set!</div>
+      <div class="onb-done-sub" id="onb-done-sub">Your diary is ready. Start writing your first entry.</div>
+      <button class="onb-btn" onclick="onbFinish()">Start writing</button>
+    </div>
+  </div>
+</div>
 
 <!-- LOADING -->
 <div id="ld">
@@ -728,7 +1377,13 @@ mark { background: var(--accent-lt); color: var(--accent); border-radius: 2px; p
 <div id="app">
   <div id="topbar">
     <div class="tb-logo">my<em>Diary</em></div>
-    <div class="tb-right" id="tb-date"></div>
+    <div class="tb-right" id="tb-right">
+      <div class="tb-map-btn" id="tb-map-btn" onclick="openMapView()" title="Memory Map">🗺️</div>
+      <div class="tb-greeting" id="tb-greeting">
+        <span class="tb-greeting-name" id="tb-greeting-name"></span>
+        <span class="tb-greeting-date" id="tb-date"></span>
+      </div>
+    </div>
   </div>
   <div id="pages">
     <!-- HOME -->
@@ -789,6 +1444,39 @@ mark { background: var(--accent-lt); color: var(--accent); border-radius: 2px; p
   </div>
 </div>
 
+<!-- MAP VIEW -->
+<div id="mapview">
+  <div class="mv-top">
+    <span class="mv-back" onclick="closeMapView()">← Back</span>
+    <div class="mv-title">Memory Map</div>
+    <div class="mv-count" id="mv-count"></div>
+  </div>
+  <div id="map-container">
+    <div id="leaflet-map"></div>
+    <div class="map-empty" id="map-empty" style="display:none">
+      <div class="map-empty-icon">📍</div>
+      <div class="map-empty-title" id="map-empty-title">No locations yet</div>
+      <div class="map-empty-sub" id="map-empty-sub">Enable location in Settings, then save entries to see them here.</div>
+    </div>
+    <div id="map-popup">
+      <div class="mp-handle"></div>
+      <div class="mp-header">
+        <div class="mp-emoji" id="mp-emoji"></div>
+        <div class="mp-meta">
+          <div class="mp-date" id="mp-date"></div>
+          <div class="mp-headline" id="mp-headline"></div>
+          <div class="mp-loc" id="mp-loc"></div>
+        </div>
+      </div>
+      <div class="mp-preview" id="mp-preview"></div>
+      <div class="mp-actions">
+        <button class="vact-btn" onclick="closeMapPopup()">Close</button>
+        <button class="vact-btn primary" id="mp-open-btn" onclick="openFromMap()">Open entry →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- READ VIEW -->
 <div id="rv">
   <div class="rv-top">
@@ -818,6 +1506,18 @@ mark { background: var(--accent-lt); color: var(--accent); border-radius: 2px; p
     <div class="emoji-strip" id="emoji-strip"></div>
 
     <span class="fld-lbl" id="chip-entry">Entry</span>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <div class="voice-trigger" style="flex:1" onclick="openVoice()">
+        <span class="vt-icon">🎙️</span>
+        <span class="vt-label" id="vt-label">Voice to text</span>
+        <span class="vt-arr">›</span>
+      </div>
+      <div class="voice-trigger" style="flex:1" onclick="openTemplates()">
+        <span class="vt-icon">📋</span>
+        <span class="vt-label" id="vt-tmpl-label">Templates</span>
+        <span class="vt-arr">›</span>
+      </div>
+    </div>
     <textarea class="eta" id="eta" rows="7" oninput="updWC()"></textarea>
     <div class="eta-meta"><span id="wc">0 words</span><span id="rt">~1 min</span></div>
 
@@ -851,6 +1551,114 @@ mark { background: var(--accent-lt); color: var(--accent); border-radius: 2px; p
   </div>
 </div>
 
+<!-- BACKUP MODAL -->
+<input type="file" id="bk-file-in" accept=".mdbak,.json" style="display:none" onchange="importBackupFile(this)">
+<div id="bkmodal" onclick="bkBgClick(event)">
+  <div class="bkbg"></div>
+  <div class="bkpanel">
+    <div class="bkhandle"></div>
+    <div class="bkhead">
+      <div class="bkhead-title" id="bkhead-title">Backup & Restore</div>
+      <div class="bkhead-sub" id="bkhead-sub">Encrypted daily backups · AES-256</div>
+    </div>
+    <div class="bkscroll" id="bkscroll"></div>
+    <div style="padding:8px 14px 0;flex-shrink:0">
+      <button class="vact-btn" style="width:100%" onclick="closeBackup()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEMPLATES MODAL -->
+<div id="tmodal" onclick="tModalBgClick(event)">
+  <div class="tmbg"></div>
+  <div class="tpanel">
+    <div class="thandle"></div>
+    <div class="thead">
+      <div class="thead-title" id="tm-title">Entry Templates</div>
+      <div class="thead-sub" id="tm-sub">Choose a template to get started</div>
+    </div>
+    <div class="tscroll" id="tscroll"></div>
+    <div class="tactions">
+      <button class="vact-btn" onclick="closeTemplates()">Cancel</button>
+      <button class="vact-btn primary" id="tm-use-btn" onclick="useTemplate()">Use Template →</button>
+    </div>
+  </div>
+</div>
+
+<!-- VOICE MODAL -->
+<div id="vmodal" onclick="vModalBgClick(event)">
+  <div class="vmbg"></div>
+  <div class="vpanel">
+    <div class="vhandle"></div>
+    <div class="vhead">
+      <div class="vhead-title" id="vm-title">Voice to text</div>
+      <span class="vclose" onclick="closeVoice()">✕</span>
+    </div>
+    <div class="vtabs">
+      <div class="vtab active" id="vtab-free" onclick="setVTab('free')">Free</div>
+      <div class="vtab" id="vtab-guided" onclick="setVTab('guided')">Guided</div>
+    </div>
+    <div class="vbody">
+      <!-- Lang selector -->
+      <div class="vlang-row">
+        <span class="vlang-lbl" id="vlang-lbl">Speech language</span>
+        <select class="vlang-select" id="vlang-select" onchange="S.voiceLang=this.value;sv()">
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="sv-SE">Svenska</option>
+          <option value="es-ES">Español</option>
+          <option value="fr-FR">Français</option>
+          <option value="de-DE">Deutsch</option>
+          <option value="ja-JP">日本語</option>
+          <option value="zh-CN">中文</option>
+          <option value="ar-SA">العربية</option>
+        </select>
+      </div>
+
+      <!-- FREE MODE -->
+      <div class="vfree show" id="vfree">
+        <button class="vmic-btn" id="vmic-free" onclick="toggleFreeMic()">🎙️</button>
+        <div class="vmic-status" id="vmic-status">Tap to record</div>
+        <div class="vtranscript" id="vtranscript-free">
+          <span class="vt-ph" id="vtranscript-ph" style="color:var(--text3);font-style:italic;font-size:.85rem">Your speech will appear here…</span>
+        </div>
+        <div class="vfree-actions">
+          <button class="vact-btn" onclick="vFreeRestart()">↺ Restart</button>
+          <button class="vact-btn primary" onclick="vFreeUse()">Use text →</button>
+        </div>
+      </div>
+
+      <!-- GUIDED MODE -->
+      <div class="vguided" id="vguided">
+        <div class="vg-progress">
+          <span class="vg-step" id="vg-step-lbl">Question 1 of 5</span>
+          <div class="vg-dots" id="vg-dots"></div>
+        </div>
+        <div class="vg-question" id="vg-question"></div>
+        <div class="vg-answer" id="vg-answer">
+          <span class="vg-answer-ph" id="vg-ans-ph">Tap the mic and answer…</span>
+        </div>
+        <div class="vg-mic-row">
+          <button class="vg-mic" id="vg-mic" onclick="toggleGuidedMic()">🎙️</button>
+          <div class="vg-mic-hint" id="vg-mic-hint">Tap to record.<br>Tap again to stop.<br>Tap <b>↺</b> to redo.</div>
+        </div>
+        <div class="vg-nav">
+          <button class="vact-btn" onclick="vGuidedRestart()">↺ Redo</button>
+          <button class="vact-btn primary" id="vg-next-btn" onclick="vGuidedNext()">Next →</button>
+        </div>
+        <!-- Result -->
+        <div style="margin-top:16px">
+          <div class="vg-result-lbl" id="vg-result-lbl" style="display:none">Your entry</div>
+          <div class="vg-result" id="vg-result"></div>
+          <div id="vg-use-wrap" style="display:none">
+            <button class="vact-btn primary" style="width:100%" onclick="vGuidedUse()">Use text →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ════ TRANSLATIONS ════
 const T = {
@@ -881,7 +1689,13 @@ const T = {
     achWords1000:{t:"Word Weaver",d:"1,000 words total"},
     achFav5:{t:"Collector",d:"5 favorites saved"},
     tagsList:["Work","Family","Health","Hobby","Love","Travel","Friends","Learning"],
-    prompts:["What made you smile today?","Describe a moment of beauty you noticed.","What are you grateful for right now?","What challenged you today?","If today had a color, what would it be?","Write about someone who inspired you.","What small victory are you proud of?","Describe your perfect tomorrow.","What would you tell your past self?","What song matches your mood?"]},
+    prompts:["What made you smile today?","Describe a moment of beauty you noticed.","What are you grateful for right now?","What challenged you today?","If today had a color, what would it be?","Write about someone who inspired you.","What small victory are you proud of?","Describe your perfect tomorrow.","What would you tell your past self?","What song matches your mood?"],
+    onb_tagline:"Your private space to reflect",onb_start:"Get Started",onb_qname:"What should we call you?",onb_qtheme:"Choose your theme",onb_qlang:"What language do you prefer?",onb_qloc:"Location for entries?",onb_locTitle:"Log where you write",onb_locDesc:"Optionally attach a location to each diary entry.",onb_locPriv:"Your location is stored only on your device. Only you can see it — not even we have access to it.",onb_done:"You're all set",onb_doneSub:"Your diary is ready. Start writing your first entry.",onb_begin:"Start writing",onb_skip:"Skip",onb_next:"Continue",onb_thLight:"Light",onb_thDark:"Dark",onb_thPastel:"Pastel",
+    voiceTitle:"Voice to text",voiceFree:"Free",voiceGuided:"Guided",voiceTap:"Tap to record",voiceRec:"Recording…",voiceRestart:"↺ Restart",voiceUse:"Use text →",voiceRedo:"↺ Redo",voiceNext:"Next →",voiceLangLbl:"Speech language",voiceStepOf:"of",voiceQuestion:"Question",voiceYourEntry:"Your entry",voiceAnsPh:"Tap the mic and answer…",voicePh:"Your speech will appear here…",voiceTrigger:"Voice to text",voiceNoSup:"Voice not supported on this device",
+    vq:["How was your day overall?","What happened today that stood out?","How are you feeling right now?","What are you grateful for today?","Is there anything else you want to remember?"],
+    tmplTitle:"Entry Templates",tmplSub:"Choose a template to get started",tmplUse:"Use Template →",
+    locationLbl:"Location",locationTitle:"Location logging",locationDesc:"Save where you write (private, only on your device)",locationOn:"Location enabled",locationDenied:"Location permission denied",viewMap:"Memory Map",entriesOnMap:"entries on the map",profileLbl:"Profile",tapToEdit:"Tap to edit name",editNamePrompt:"Your name:",
+    bkLbl:"Backup & Restore",bkSub:"Encrypted daily backups · AES-256",bkAutoTitle:"Automatic Daily Backups",bkKeepDays:"Backups to keep",bkNoAuto:"No automatic backups yet. Open the app daily to build up backups.",bkRestore:"Restore",bkExport:"Export encrypted backup",bkExportSub:"Downloads a .mdbak file — encrypted, only readable by this app",bkImportLbl:"Tap to choose a .mdbak file",bkImportSub:"Restores all entries from a backup",bkPlainTitle:"Plain Exports",bkManualTitle:"Manual Backup",bkRestoreTitle:"Restore from File",backupPinPrompt:"Enter the PIN used when this backup was created (leave empty if none):",backupRestoreConfirm:"Restore {n} entries? This will REPLACE your current diary.",backupRestored:"Restored!",backupError:"Restore failed — wrong PIN or invalid file",},
   sv:{home:"Hem",search:"Sök",write:"Skriv",stats:"Statistik",more:"Mer",
     mood:"Humör",entry:"Anteckning",tags:"Taggar",color:"Dagfärg",
     save:"Spara",del:"Ta bort",fav:"Spara som fav",unfav:"Favorit",
@@ -900,7 +1714,13 @@ const T = {
     ach50:{t:"50 anteckningar",d:"50 inlägg"},ach100:{t:"Hundring",d:"100 anteckningar"},
     achWords1000:{t:"Ordvävare",d:"1 000 ord totalt"},achFav5:{t:"Samlare",d:"5 favoriter"},
     tagsList:["Jobb","Familj","Hälsa","Hobby","Kärlek","Resa","Vänner","Lärande"],
-    prompts:["Vad fick dig att le idag?","Beskriv ett vackert ögonblick.","Vad är du tacksam för?","Vad utmanade dig?","Om idag hade en färg?","Skriv om någon som inspirerat dig.","Vilken liten seger är du stolt över?","Beskriv din perfekta morgondag.","Vad skulle du säga till ditt förra jag?","Vilken låt matchar ditt humör?"]},
+    prompts:["Vad fick dig att le idag?","Beskriv ett vackert ögonblick.","Vad är du tacksam för?","Vad utmanade dig?","Om idag hade en färg?","Skriv om någon som inspirerat dig.","Vilken liten seger är du stolt över?","Beskriv din perfekta morgondag.","Vad skulle du säga till ditt förra jag?","Vilken låt matchar ditt humör?"],
+    onb_tagline:"Din privata plats för reflektion",onb_start:"Kom igång",onb_qname:"Vad ska vi kalla dig?",onb_qtheme:"Välj ditt tema",onb_qlang:"Vilket språk föredrar du?",onb_qloc:"Plats för anteckningar?",onb_locTitle:"Logga var du skriver",onb_locDesc:"Fäst valfritt en plats till varje dagboksanteckning.",onb_locPriv:"Din plats lagras bara på din enhet. Bara du kan se den — inte ens vi har tillgång till den.",onb_done:"Du är redo",onb_doneSub:"Din dagbok är klar. Skriv din första anteckning.",onb_begin:"Börja skriva",onb_skip:"Hoppa över",onb_next:"Fortsätt",onb_thLight:"Ljust",onb_thDark:"Mörkt",onb_thPastel:"Pastell",
+    voiceTitle:"Röst till text",voiceFree:"Fri",voiceGuided:"Guidad",voiceTap:"Tryck för att spela in",voiceRec:"Spelar in…",voiceRestart:"↺ Börja om",voiceUse:"Använd text →",voiceRedo:"↺ Gör om",voiceNext:"Nästa →",voiceLangLbl:"Taligenkänningsspråk",voiceStepOf:"av",voiceQuestion:"Fråga",voiceYourEntry:"Din anteckning",voiceAnsPh:"Tryck på mikrofonen och svara…",voicePh:"Ditt tal visas här…",voiceTrigger:"Röst till text",voiceNoSup:"Röst stöds inte på denna enhet",
+    vq:["Hur var din dag överlag?","Vad hände idag som stack ut?","Hur mår du just nu?","Vad är du tacksam för idag?","Är det något annat du vill komma ihåg?"],
+    tmplTitle:"Anteckningsmallar",tmplSub:"Välj en mall för att komma igång",tmplUse:"Använd mall →",
+    locationLbl:"Plats",locationTitle:"Platsloggning",locationDesc:"Spara var du skriver (privat, bara på din enhet)",locationOn:"Plats aktiverad",locationDenied:"Plats nekad",viewMap:"Minneskarta",entriesOnMap:"anteckningar på kartan",profileLbl:"Profil",tapToEdit:"Tryck för att ändra namn",editNamePrompt:"Ditt namn:",
+    bkLbl:"Säkerhetskopiering",bkSub:"Krypterade dagliga säkerhetskopior · AES-256",bkAutoTitle:"Automatiska dagliga kopior",bkKeepDays:"Kopior att spara",bkNoAuto:"Inga automatiska kopior ännu. Öppna appen dagligen för att bygga upp kopior.",bkRestore:"Återställ",bkExport:"Exportera krypterad kopia",bkExportSub:"Laddar ned en .mdbak-fil — krypterad, bara läsbar av denna app",bkImportLbl:"Tryck för att välja en .mdbak-fil",bkImportSub:"Återställer alla anteckningar från kopian",bkPlainTitle:"Vanlig export",bkManualTitle:"Manuell kopia",bkRestoreTitle:"Återställ från fil",backupPinPrompt:"Ange PIN-koden som användes när kopian skapades (lämna tomt om ingen):",backupRestoreConfirm:"Återställa {n} anteckningar? Detta ERSÄTTER din nuvarande dagbok.",backupRestored:"Återställd!",backupError:"Återställning misslyckades — fel PIN eller ogiltig fil"},
   es:{home:"Inicio",search:"Buscar",write:"Escribir",stats:"Stats",more:"Más",
     mood:"Ánimo",entry:"Entrada",tags:"Etiquetas",color:"Color del día",
     save:"Guardar",del:"Borrar",fav:"Guardar fav",unfav:"Favorito",
@@ -919,7 +1739,8 @@ const T = {
     ach50:{t:"50 entradas",d:"50 entradas"},ach100:{t:"100",d:"100 entradas"},
     achWords1000:{t:"Escritor",d:"1.000 palabras"},achFav5:{t:"Coleccionista",d:"5 favoritos"},
     tagsList:["Trabajo","Familia","Salud","Hobby","Amor","Viaje","Amigos","Aprendizaje"],
-    prompts:["¿Qué te hizo sonreír?","Describe un momento de belleza.","¿Por qué estás agradecido?","¿Qué te desafió hoy?","Si hoy tuviera un color...","Sobre alguien que te inspiró.","¿De qué victoria estás orgulloso?","Tu mañana perfecto.","¿Qué le dirías a tu yo pasado?","¿Qué canción va con tu humor?"]},
+    prompts:["¿Qué te hizo sonreír?","Describe un momento de belleza.","¿Por qué estás agradecido?","¿Qué te desafió hoy?","Si hoy tuviera un color...","Sobre alguien que te inspiró.","¿De qué victoria estás orgulloso?","Tu mañana perfecto.","¿Qué le dirías a tu yo pasado?","¿Qué canción va con tu humor?"],
+    vq:["¿Cómo fue tu día en general?","¿Qué destacó hoy?","¿Cómo te sientes ahora mismo?","¿Por qué estás agradecido hoy?","¿Hay algo más que quieras recordar?"],voiceTitle:"Voz a texto",voiceFree:"Libre",voiceGuided:"Guiado",voiceTap:"Toca para grabar",voiceRec:"Grabando…",voiceRestart:"↺ Reiniciar",voiceUse:"Usar texto →",voiceRedo:"↺ Rehacer",voiceNext:"Siguiente →",voiceLangLbl:"Idioma de voz",voiceStepOf:"de",voiceQuestion:"Pregunta",voiceYourEntry:"Tu entrada",voiceAnsPh:"Toca el micrófono y responde…",voicePh:"Tu voz aparecerá aquí…",voiceTrigger:"Voz a texto",onb_tagline:"Tu espacio privado para reflexionar",onb_start:"Comenzar",onb_qname:"¿Cómo deberíamos llamarte?",onb_qtheme:"Elige tu tema",onb_qlang:"¿Qué idioma prefieres?",onb_qloc:"¿Ubicación en entradas?",onb_locTitle:"Registrar dónde escribes",onb_locDesc:"Adjunta opcionalmente una ubicación a cada entrada.",onb_locPriv:"Tu ubicación se almacena solo en tu dispositivo. Solo tú puedes verla.",onb_done:"¡Todo listo!",onb_doneSub:"Tu diario está listo. Escribe tu primera entrada.",onb_begin:"Empezar a escribir",onb_skip:"Saltar",onb_next:"Continuar"},
   fr:{home:"Accueil",search:"Chercher",write:"Écrire",stats:"Stats",more:"Plus",
     mood:"Humeur",entry:"Entrée",tags:"Tags",color:"Couleur du jour",
     save:"Enregistrer",del:"Suppr.",fav:"Ajouter fav",unfav:"Favori",
@@ -938,7 +1759,8 @@ const T = {
     ach50:{t:"50 entrées",d:"50 entrées"},ach100:{t:"100",d:"100 entrées"},
     achWords1000:{t:"Rédacteur",d:"1 000 mots"},achFav5:{t:"Collectionneur",d:"5 favoris"},
     tagsList:["Travail","Famille","Santé","Loisir","Amour","Voyage","Amis","Apprentissage"],
-    prompts:["Qu'est-ce qui vous a fait sourire?","Décrivez un moment de beauté.","De quoi êtes-vous reconnaissant?","Qu'est-ce qui vous a défié?","Si aujourd'hui avait une couleur?","Sur quelqu'un qui vous a inspiré.","De quelle victoire êtes-vous fier?","Votre lendemain parfait.","Que diriez-vous à votre moi passé?","Quelle chanson correspond à votre humeur?"]},
+    prompts:["Qu'est-ce qui vous a fait sourire?","Décrivez un moment de beauté.","De quoi êtes-vous reconnaissant?","Qu'est-ce qui vous a défié?","Si aujourd'hui avait une couleur?","Sur quelqu'un qui vous a inspiré.","De quelle victoire êtes-vous fier?","Votre lendemain parfait.","Que diriez-vous à votre moi passé?","Quelle chanson correspond à votre humeur?"],
+    vq:["Comment s'est passée ta journée?","Qu'est-ce qui s'est démarqué aujourd'hui?","Comment te sens-tu maintenant?","De quoi es-tu reconnaissant aujourd'hui?","Y a-t-il autre chose à retenir?"],voiceTitle:"Voix en texte",voiceFree:"Libre",voiceGuided:"Guidé",voiceTap:"Appuyer pour enregistrer",voiceRec:"Enregistrement…",voiceRestart:"↺ Recommencer",voiceUse:"Utiliser →",voiceRedo:"↺ Refaire",voiceNext:"Suivant →",voiceLangLbl:"Langue vocale",voiceStepOf:"sur",voiceQuestion:"Question",voiceYourEntry:"Ton entrée",voiceAnsPh:"Appuie sur le micro et réponds…",voicePh:"Ta voix apparaîtra ici…",voiceTrigger:"Voix en texte",onb_tagline:"Ton espace privé de réflexion",onb_start:"Commencer",onb_qname:"Comment devrions-nous t'appeler?",onb_qtheme:"Choisis ton thème",onb_qlang:"Quelle langue préfères-tu?",onb_qloc:"Localisation des entrées?",onb_locTitle:"Enregistrer où tu écris",onb_locDesc:"Attache optionnellement un emplacement à chaque entrée.",onb_locPriv:"Ta localisation est stockée uniquement sur ton appareil. Seul toi peux la voir.",onb_done:"Tout est prêt!",onb_doneSub:"Ton journal est prêt. Écris ta première entrée.",onb_begin:"Commencer à écrire",onb_skip:"Passer",onb_next:"Continuer"},
   de:{home:"Start",search:"Suchen",write:"Schreiben",stats:"Statistik",more:"Mehr",
     mood:"Stimmung",entry:"Eintrag",tags:"Tags",color:"Tagesfarbe",
     save:"Speichern",del:"Löschen",fav:"Als Fav speichern",unfav:"Favorit",
@@ -957,7 +1779,8 @@ const T = {
     ach50:{t:"50 Einträge",d:"50 Einträge"},ach100:{t:"100",d:"100 Einträge"},
     achWords1000:{t:"Schreiber",d:"1.000 Wörter"},achFav5:{t:"Sammler",d:"5 Favoriten"},
     tagsList:["Arbeit","Familie","Gesundheit","Hobby","Liebe","Reise","Freunde","Lernen"],
-    prompts:["Was brachte dich heute zum Lächeln?","Beschreibe einen schönen Moment.","Wofür bist du dankbar?","Was hat dich herausgefordert?","Welche Farbe hätte heute?","Über jemanden der dich inspiriert hat.","Auf welchen Sieg bist du stolz?","Beschreibe deinen perfekten Morgen.","Was würdest du deinem früheren Ich sagen?","Welches Lied passt zu deiner Stimmung?"]},
+    prompts:["Was brachte dich heute zum Lächeln?","Beschreibe einen schönen Moment.","Wofür bist du dankbar?","Was hat dich herausgefordert?","Welche Farbe hätte heute?","Über jemanden der dich inspiriert hat.","Auf welchen Sieg bist du stolz?","Beschreibe deinen perfekten Morgen.","Was würdest du deinem früheren Ich sagen?","Welches Lied passt zu deiner Stimmung?"],
+    vq:["Wie war dein Tag insgesamt?","Was fiel dir heute besonders auf?","Wie fühlst du dich gerade?","Wofür bist du heute dankbar?","Gibt es noch etwas, das du festhalten möchtest?"],voiceTitle:"Sprache zu Text",voiceFree:"Frei",voiceGuided:"Geführt",voiceTap:"Zum Aufnehmen tippen",voiceRec:"Aufnehmen…",voiceRestart:"↺ Neustart",voiceUse:"Text verwenden →",voiceRedo:"↺ Wiederholen",voiceNext:"Weiter →",voiceLangLbl:"Sprachsprache",voiceStepOf:"von",voiceQuestion:"Frage",voiceYourEntry:"Dein Eintrag",voiceAnsPh:"Mikrofon tippen und antworten…",voicePh:"Deine Sprache erscheint hier…",voiceTrigger:"Sprache zu Text",onb_tagline:"Dein privater Reflexionsraum",onb_start:"Loslegen",onb_qname:"Wie sollen wir dich nennen?",onb_qtheme:"Wähle dein Thema",onb_qlang:"Welche Sprache bevorzugst du?",onb_qloc:"Standort für Einträge?",onb_locTitle:"Schreibort aufzeichnen",onb_locDesc:"Optional einen Standort zu jedem Eintrag hinzufügen.",onb_locPriv:"Dein Standort wird nur auf deinem Gerät gespeichert. Nur du kannst ihn sehen.",onb_done:"Alles bereit!",onb_doneSub:"Dein Tagebuch ist bereit. Schreib deinen ersten Eintrag.",onb_begin:"Schreiben beginnen",onb_skip:"Überspringen",onb_next:"Weiter"},
   ja:{home:"ホーム",search:"検索",write:"書く",stats:"統計",more:"その他",
     mood:"気分",entry:"日記",tags:"タグ",color:"今日の色",
     save:"保存",del:"削除",fav:"お気に入り",unfav:"お気に入り済",
@@ -976,7 +1799,8 @@ const T = {
     ach50:{t:"50件",d:"50件"},ach100:{t:"100件",d:"100件！"},
     achWords1000:{t:"言葉の達人",d:"合計1,000語"},achFav5:{t:"コレクター",d:"5件お気に入り"},
     tagsList:["仕事","家族","健康","趣味","愛","旅行","友達","学習"],
-    prompts:["今日笑顔になったのは？","美しいと感じた瞬間を書いて。","今感謝していることは？","今日の挑戦は何でしたか？","今日が色なら何色？","最近誰かに刺激を受けましたか？","小さな勝利は何ですか？","完璧な明日を描いて。","過去の自分に伝えるなら？","今の気分に合う曲は？"]},
+    prompts:["今日笑顔になったのは？","美しいと感じた瞬間を書いて。","今感謝していることは？","今日の挑戦は何でしたか？","今日が色なら何色？","最近誰かに刺激を受けましたか？","小さな勝利は何ですか？","完璧な明日を描いて。","過去の自分に伝えるなら？","今の気分に合う曲は？"],
+    vq:["今日は全体的にどうでしたか？","今日特に印象に残ったことは？","今どんな気持ちですか？","今日感謝していることは？","他に覚えておきたいことはありますか？"],voiceTitle:"音声入力",voiceFree:"フリー",voiceGuided:"ガイド付き",voiceTap:"タップして録音",voiceRec:"録音中…",voiceRestart:"↺ やり直し",voiceUse:"テキストを使用 →",voiceRedo:"↺ 再録音",voiceNext:"次へ →",voiceLangLbl:"音声言語",voiceStepOf:"／",voiceQuestion:"質問",voiceYourEntry:"あなたの日記",voiceAnsPh:"マイクをタップして答えてください…",voicePh:"ここに音声が表示されます…",voiceTrigger:"音声入力",onb_tagline:"あなただけのプライベート空間",onb_start:"始める",onb_qname:"お名前を教えてください",onb_qtheme:"テーマを選んでください",onb_qlang:"言語を選んでください",onb_qloc:"位置情報を使いますか？",onb_locTitle:"書いた場所を記録",onb_locDesc:"日記エントリーに場所を任意で付けられます。",onb_locPriv:"位置情報はデバイスのみに保存されます。あなただけが見ることができます。",onb_done:"準備完了！",onb_doneSub:"日記が始められます。最初のエントリーを書きましょう。",onb_begin:"書き始める",onb_skip:"スキップ",onb_next:"続ける"},
   zh:{home:"主页",search:"搜索",write:"写作",stats:"统计",more:"更多",
     mood:"情绪",entry:"日记",tags:"标签",color:"今日颜色",
     save:"保存",del:"删除",fav:"收藏",unfav:"已收藏",
@@ -995,7 +1819,8 @@ const T = {
     ach50:{t:"50条",d:"50篇日记"},ach100:{t:"百篇",d:"100篇！"},
     achWords1000:{t:"文字达人",d:"共1,000字"},achFav5:{t:"收藏家",d:"5篇收藏"},
     tagsList:["工作","家庭","健康","爱好","爱情","旅行","朋友","学习"],
-    prompts:["今天什么让你微笑？","描述一个美丽的瞬间。","你现在感激什么？","今天遇到什么挑战？","如果今天是颜色会是什么？","写写最近激励你的人。","为哪个小胜利感到自豪？","描述你完美的明天。","你会对过去的自己说什么？","什么歌符合你现在的心情？"]},
+    prompts:["今天什么让你微笑？","描述一个美丽的瞬间。","你现在感激什么？","今天遇到什么挑战？","如果今天是颜色会是什么？","写写最近激励你的人。","为哪个小胜利感到自豪？","描述你完美的明天。","你会对过去的自己说什么？","什么歌符合你现在的心情？"],
+    vq:["今天整体感觉怎么样？","今天有什么特别的事情？","你现在感觉如何？","今天你感激什么？","还有什么想记录的吗？"],voiceTitle:"语音输入",voiceFree:"自由",voiceGuided:"引导",voiceTap:"点击录音",voiceRec:"录音中…",voiceRestart:"↺ 重新开始",voiceUse:"使用文本 →",voiceRedo:"↺ 重录",voiceNext:"下一步 →",voiceLangLbl:"语音语言",voiceStepOf:"共",voiceQuestion:"问题",voiceYourEntry:"你的日记",voiceAnsPh:"点击麦克风回答…",voicePh:"语音将显示在这里…",voiceTrigger:"语音输入",onb_tagline:"你的私人反思空间",onb_start:"开始",onb_qname:"我们该怎么称呼你？",onb_qtheme:"选择主题",onb_qlang:"你喜欢什么语言？",onb_qloc:"为日记添加位置？",onb_locTitle:"记录写作地点",onb_locDesc:"可选择为每篇日记附加位置信息。",onb_locPriv:"你的位置仅存储在你的设备上，只有你能看到。",onb_done:"准备就绪！",onb_doneSub:"你的日记已准备好，写下第一篇。",onb_begin:"开始写作",onb_skip:"跳过",onb_next:"继续"},
   ar:{home:"الرئيسية",search:"بحث",write:"اكتب",stats:"إحصاء",more:"المزيد",
     mood:"الحالة",entry:"المدخل",tags:"الوسوم",color:"لون اليوم",
     save:"حفظ",del:"حذف",fav:"إضافة للمفضلة",unfav:"في المفضلة",
@@ -1014,7 +1839,8 @@ const T = {
     ach50:{t:"50 مدخلًا",d:"50 مدخلًا"},ach100:{t:"المئة",d:"100 مدخل"},
     achWords1000:{t:"نساج الكلمات",d:"1,000 كلمة"},achFav5:{t:"المجمّع",d:"5 مفضلة"},
     tagsList:["عمل","عائلة","صحة","هواية","حب","سفر","أصدقاء","تعلم"],
-    prompts:["ما الذي جعلك تبتسم؟","صف لحظة جمال لاحظتها.","ما الذي تشكره الآن؟","ما الذي تحداك؟","لو كان اليوم له لون؟","اكتب عن شخص ألهمك.","ما الانتصار الصغير الذي تفخر به؟","صف غدك المثالي.","ماذا ستقول لنفسك في الماضي؟","ما الأغنية التي تناسب مزاجك؟"]}
+    prompts:["ما الذي جعلك تبتسم؟","صف لحظة جمال لاحظتها.","ما الذي تشكره الآن؟","ما الذي تحداك؟","لو كان اليوم له لون؟","اكتب عن شخص ألهمك.","ما الانتصار الصغير الذي تفخر به؟","صف غدك المثالي.","ماذا ستقول لنفسك في الماضي؟","ما الأغنية التي تناسب مزاجك؟"],
+    vq:["كيف كان يومك بشكل عام؟","ما الذي لفت انتباهك اليوم؟","كيف تشعر الآن؟","ما الذي تشكره اليوم؟","هل هناك شيء آخر تريد تذكره؟"],voiceTitle:"الصوت إلى نص",voiceFree:"حر",voiceGuided:"موجّه",voiceTap:"اضغط للتسجيل",voiceRec:"جاري التسجيل…",voiceRestart:"↺ إعادة",voiceUse:"استخدام النص →",voiceRedo:"↺ إعادة التسجيل",voiceNext:"التالي →",voiceLangLbl:"لغة الكلام",voiceStepOf:"من",voiceQuestion:"سؤال",voiceYourEntry:"مدخلتك",voiceAnsPh:"اضغط الميكروفون وأجب…",voicePh:"ستظهر كلماتك هنا…",voiceTrigger:"الصوت إلى نص",onb_tagline:"مساحتك الخاصة للتأمل",onb_start:"ابدأ",onb_qname:"ماذا نناديك؟",onb_qtheme:"اختر المظهر",onb_qlang:"ما اللغة المفضلة لديك؟",onb_qloc:"تسجيل الموقع في المدخلات؟",onb_locTitle:"تسجيل مكان الكتابة",onb_locDesc:"أضف اختياريًا موقعًا لكل مدخلة.",onb_locPriv:"يُحفظ موقعك فقط على جهازك. أنت وحدك من يستطيع رؤيته.",onb_done:"أنت جاهز!",onb_doneSub:"يومياتك جاهزة. ابدأ بكتابة أول مدخلة.",onb_begin:"ابدأ الكتابة",onb_skip:"تخطي",onb_next:"متابعة"}
 };
 
 // ════ DAY COLORS ════
@@ -1033,7 +1859,7 @@ const MNS = ["January","February","March","April","May","June","July","August","
 const DOW = {en:["S","M","T","W","T","F","S"],sv:["S","M","T","O","T","F","L"],ar:["أ","إ","ث","أ","خ","ج","س"]};
 
 // ════ STATE ════
-let S = {lang:'en',theme:'light',pin:null,pinEnabled:false,entries:{},calY:new Date().getFullYear(),calM:new Date().getMonth()};
+let S = {lang:'en',theme:'light',pin:null,pinEnabled:false,entries:{},calY:new Date().getFullYear(),calM:new Date().getMonth(),onboarded:false,userName:'',locationEnabled:false,voiceLang:'',backupKeepDays:3,lastAutoBackup:''};
 let curDate=null, pinBuf='', lpTimer=null, swY=0, moodDate=null, vpH=null;
 let readDate=null;
 
@@ -1042,23 +1868,62 @@ function tod(){return new Date().toISOString().slice(0,10);}
 function fmt(ds,o){return new Date(ds+'T12:00:00').toLocaleDateString(S.lang,o);}
 
 function ld(){try{const d=JSON.parse(localStorage.getItem('mdr3')||'{}');Object.assign(S,d);S.calY=new Date().getFullYear();S.calM=new Date().getMonth();}catch(e){}}
-function sv(){try{localStorage.setItem('mdr3',JSON.stringify({lang:S.lang,theme:S.theme,pin:S.pin,pinEnabled:S.pinEnabled,entries:S.entries}));}catch(e){}}
+function sv(){try{localStorage.setItem('mdr3',JSON.stringify({lang:S.lang,theme:S.theme,pin:S.pin,pinEnabled:S.pinEnabled,entries:S.entries,onboarded:S.onboarded,userName:S.userName,locationEnabled:S.locationEnabled,voiceLang:S.voiceLang,backupKeepDays:S.backupKeepDays,lastAutoBackup:S.lastAutoBackup}));}catch(e){}}
 
 // ════ BOOT ════
 window.addEventListener('load',()=>{
   ld(); applyTheme(S.theme); applyLang(S.lang); updTBDate();
   setTimeout(()=>{
     document.getElementById('ld').classList.add('out');
-    document.getElementById('app').classList.add('show');
-    document.getElementById('savebar').classList.remove('vis');
-    if(S.pinEnabled&&S.pin) showPin();
-    else{rCal();rStats();rMore();}
+    if(!S.onboarded){
+      initOnboarding();
+    } else {
+      document.getElementById('app').classList.add('show');
+      document.getElementById('savebar').classList.remove('vis');
+      updTBName(); updMapBtn();
+      if(S.pinEnabled&&S.pin) showPin();
+      else{rCal();rStats();rMore();}
+      scheduleAutoBackup();
+    }
   },3100);
 });
 
 function updTBDate(){
   const d=new Date();
-  document.getElementById('tb-date').innerHTML=`<strong>${d.toLocaleDateString(S.lang,{weekday:'short'})}</strong>${d.toLocaleDateString(S.lang,{month:'short',day:'numeric'})}`;
+  const dateStr=d.toLocaleDateString(S.lang,{weekday:'short',month:'short',day:'numeric'});
+  document.getElementById('tb-date').textContent=dateStr;
+  updTBName();
+  updMapBtn();
+}
+function updTBName(){
+  const nameEl=document.getElementById('tb-greeting-name');
+  if(!nameEl)return;
+  if(S.userName){
+    const h=d=>d<12?0:d<17?1:d<21?2:3;
+    const greets={
+      en:['Good morning','Good afternoon','Good evening','Good night'],
+      sv:['God morgon','God eftermiddag','God kväll','God natt'],
+      es:['Buenos días','Buenas tardes','Buenas tardes','Buenas noches'],
+      fr:['Bonjour','Bonne après-midi','Bonsoir','Bonne nuit'],
+      de:['Guten Morgen','Guten Tag','Guten Abend','Gute Nacht'],
+      ja:['おはよう','こんにちは','こんばんは','おやすみ'],
+      zh:['早上好','下午好','晚上好','晚安'],
+      ar:['صباح الخير','مساء الخير','مساء الخير','تصبح على خير'],
+    };
+    const hr=new Date().getHours();
+    const list=greets[S.lang]||greets.en;
+    nameEl.textContent=list[h(hr)]+', '+S.userName;
+    nameEl.style.display='block';
+  } else {
+    nameEl.textContent='';
+    nameEl.style.display='none';
+  }
+}
+function updMapBtn(){
+  const btn=document.getElementById('tb-map-btn');
+  if(!btn)return;
+  const hasLoc=S.locationEnabled&&Object.values(S.entries).some(e=>e.loc);
+  btn.classList.toggle('show',hasLoc);
 }
 
 // ════ TAB SWITCH ════
@@ -1134,6 +1999,7 @@ function rRecent(){
         <span class="ecard-emoji">${e.emoji||''}</span>
         <span class="ecard-date">${fmt(ds,{weekday:'long',month:'long',day:'numeric'})}</span>
         ${e.favorite?`<span class="ecard-fav">Fav</span>`:''}
+        ${e.loc&&S.locationEnabled?`<span style="font-size:.7rem;color:var(--text3)" title="Location logged">📍</span>`:''}
       </div>
       <div class="ecard-preview">${e.text||''}</div>
       ${(e.tags||[]).length?`<div class="ecard-tags">${e.tags.map(tg=>`<span class="ecard-tag">${tg}</span>`).join('')}</div>`:''}
@@ -1161,6 +2027,7 @@ function openRead(ds){
   if(e.emoji)moodHTML+=`<span class="rv-emoji">${e.emoji}</span>`;
   if(e.tags&&e.tags.length)moodHTML+=`<span class="rv-mood-lbl">${e.tags.join(' · ')}</span>`;
   if(e.color)moodHTML+=`<div class="rv-color-badge" style="background:${e.color}"></div>`;
+  if(e.loc&&S.locationEnabled)moodHTML+=`<span style="font-size:.8rem;color:var(--text3);cursor:pointer;margin-left:auto;padding:2px 8px;background:var(--surface2);border-radius:20px;font-size:.68rem;font-weight:700;letter-spacing:.04em" onclick="openMapFromRead('${ds}')">📍 Map</span>`;
   mood.innerHTML=moodHTML||'<span class="rv-mood-lbl" style="color:var(--text3)">No mood recorded</span>';
 
   // Body — skip first line if used as headline
@@ -1286,8 +2153,19 @@ function saveEntry(){
   const selColor=document.querySelector('#color-picker .cp-swatch.sel');
   const color=selColor?selColor.style.background:'';
   if(!text&&!emoji){showToast('Nothing to save!');return;}
-  S.entries[ds]={...(S.entries[ds]||{}),text,emoji,tags,color,favorite:S.entries[ds]?.favorite||false};
-  sv();
+  const existing=S.entries[ds]||{};
+  S.entries[ds]={...existing,text,emoji,tags,color,favorite:existing.favorite||false};
+  // Capture location if enabled and not already stored for today
+  if(S.locationEnabled&&!S.entries[ds].loc){
+    navigator.geolocation?.getCurrentPosition(
+      pos=>{
+        S.entries[ds].loc={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:Math.round(pos.coords.accuracy)};
+        sv(); updMapBtn();
+      },
+      ()=>{} // silent fail
+    ,{timeout:8000,maximumAge:60000});
+  }
+  sv(); updMapBtn();
   const btn=document.getElementById('sb-main');
   btn.textContent='Saved ✓';btn.style.background='var(--success)';
   setTimeout(()=>{btn.textContent=t('save');btn.style.background='';},1600);
@@ -1433,7 +2311,21 @@ function rStats(){
 function rMore(){
   const p=document.getElementById('page-more');
   const favEntries=Object.entries(S.entries).filter(([,e])=>e.favorite).sort((a,b)=>b[0].localeCompare(a[0]));
+  const locCount=Object.values(S.entries).filter(e=>e.loc).length;
   p.innerHTML=`
+  ${S.userName?`
+  <div class="mhd">${t('profileLbl')||'Profile'}</div>
+  <div class="m-sec">
+    <div class="m-row" onclick="editName()">
+      <div style="flex:1">
+        <div class="mr-lbl" style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:1.1rem">👤</span> ${S.userName}
+        </div>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${t('tapToEdit')||'Tap to edit name'}</div>
+      </div>
+      <span class="mr-arr">›</span>
+    </div>
+  </div>`:''}
   <div class="mhd">${t('ap')}</div>
   <div class="theme-row">
     <div class="tb tb-light${S.theme==='light'?' act':''}" onclick="setTheme('light')">✓</div>
@@ -1453,17 +2345,43 @@ function rMore(){
       <option value="ar"${S.lang==='ar'?' selected':''}>العربية</option>
     </select>
   </div>
+  <div class="mhd">${t('locationLbl')||'Location'}</div>
+  <div class="m-sec">
+    <div class="m-row">
+      <div style="flex:1">
+        <div class="mr-lbl" style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:1.1rem">📍</span> ${t('locationTitle')||'Location logging'}
+        </div>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${t('locationDesc')||'Save where you write (private, only on your device)'}</div>
+      </div>
+      <label class="tgl"><input type="checkbox"${S.locationEnabled?' checked':''} onchange="toggleLocation(this.checked)"><div class="tsl"></div></label>
+    </div>
+    ${S.locationEnabled&&locCount>0?`<div class="m-row" onclick="openMapView()">
+      <div style="flex:1">
+        <div class="mr-lbl" style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:1.1rem">🗺️</span> ${t('viewMap')||'Memory Map'}
+        </div>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${locCount} ${t('entriesOnMap')||'entries on the map'}</div>
+      </div>
+      <span class="mr-arr">›</span>
+    </div>`:''}
+  </div>
   <div class="mhd">${t('favsLbl')}</div>
   <div id="ml-favs">${favEntries.length===0
     ?`<div class="m-sec"><div style="padding:18px 16px;color:var(--text3);font-size:.85rem;text-align:center">${t('noFavs')}</div></div>`
     :favEntries.map(([ds,e])=>`<div class="ecard" onclick="tapDay('${ds}')"><div class="ecard-head"><span class="ecard-emoji">${e.emoji||''}</span><span class="ecard-date">${fmt(ds,{weekday:'short',month:'short',day:'numeric'})}</span></div><div class="ecard-preview">${e.text||''}</div></div>`).join('')
   }</div>
-  <div class="mhd">${t('exp')}</div>
+  <div class="mhd">${t('bkLbl')||'Backup & Restore'}</div>
   <div class="m-sec">
-    <div class="m-row" onclick="expHTML()"><span class="mr-lbl">${t('expHtml')}</span><span class="mr-arr">›</span></div>
-    <div class="m-row" onclick="expTxt()"><span class="mr-lbl">${t('expTxt')}</span><span class="mr-arr">›</span></div>
-    <div class="m-row" onclick="expJSON()"><span class="mr-lbl">${t('expJson')}</span><span class="mr-arr">›</span></div>
-    <div class="m-row" onclick="shareToday()"><span class="mr-lbl">${t('shareT')}</span><span class="mr-arr">›</span></div>
+    <div class="m-row" onclick="openBackup()">
+      <div style="flex:1">
+        <div class="mr-lbl" style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:1.1rem">🔒</span> ${t('bkLbl')||'Backup & Restore'}
+        </div>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${t('bkSub')||'Encrypted daily backups · AES-256'}</div>
+      </div>
+      <span class="mr-arr">›</span>
+    </div>
   </div>
   <div class="mhd">${t('sec')}</div>
   <div class="m-sec">
@@ -1520,6 +2438,8 @@ function applyLang(lang){
   });
   const wb=document.getElementById('nl-write-btn');if(wb)wb.textContent=T[lang]?.write||T.en.write;
   document.getElementById('p-sub').textContent=T[lang]?.enterPin||T.en.enterPin;
+  const vt=document.getElementById('vt-label');if(vt)vt.textContent=T[lang]?.voiceTrigger||T.en.voiceTrigger||'Voice to text';
+  const vtl=document.getElementById('vt-tmpl-label');if(vtl)vtl.textContent=T[lang]?.tmplLbl||T.en.tmplLbl||'Templates';
 }
 
 // ════ PIN ════
@@ -1546,17 +2466,928 @@ function chgPin(){const p=prompt('New 4-digit PIN:');if(!p||!/^\d{4}$/.test(p)){
 function curStreak(){let d=new Date(tod()),s=0;while(true){const ds=d.toISOString().slice(0,10);if(S.entries[ds]){s++;d.setDate(d.getDate()-1);}else break;}return s;}
 function longestStreak(){const k=Object.keys(S.entries).sort();if(!k.length)return 0;let max=1,cur=1;for(let i=1;i<k.length;i++){const diff=(new Date(k[i])-new Date(k[i-1]))/86400000;if(diff===1){cur++;max=Math.max(max,cur);}else cur=1;}return max;}
 
-// ════ EXPORT ════
-function expHTML(){const e=Object.entries(S.entries).sort((a,b)=>a[0].localeCompare(b[0]));const b=e.map(([ds,e])=>`<div class="e"><h2>${ds} ${e.emoji||''}</h2>${(e.tags||[]).length?`<div class="t">${e.tags.map(t=>`<span>${t}</span>`).join('')}</div>`:''}<p>${(e.text||'').replace(/\n/g,'<br>')}</p></div>`).join('');dl('myDiary.html',`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>myDiary</title><style>body{font-family:Georgia,serif;max-width:680px;margin:40px auto;padding:0 24px;background:#f9f6f1;color:#1a1612}h1{font-style:italic;color:#b8723f;font-size:2rem}.e{border-bottom:1px solid #e5ddd2;padding:2rem 0}h2{color:#b8723f;font-size:1.1rem}.t span{background:#f2ede5;padding:2px 10px;border-radius:20px;font-size:.75rem;margin:0 3px;display:inline-block}p{line-height:1.85;color:#5a5040;margin-top:.75rem}</style></head><body><h1>myDiary</h1>${b}</body></html>`,'text/html');showToast('Exported');}
-function expTxt(){dl('myDiary.txt',Object.entries(S.entries).sort((a,b)=>a[0].localeCompare(b[0])).map(([ds,e])=>`${ds} ${e.emoji||''}\n${'─'.repeat(40)}\n${e.text||''}\n\n`).join(''),'text/plain');showToast('Exported');}
-function expJSON(){dl('myDiary.json',JSON.stringify(S.entries,null,2),'application/json');showToast('Backup saved');}
+// ════ EXPORT (plain) ════
+function expHTML(){const e=Object.entries(S.entries).sort((a,b)=>a[0].localeCompare(b[0]));const b=e.map(([ds,e])=>`<div class="e"><h2>${ds} ${e.emoji||''}</h2>${(e.tags||[]).length?`<div class="t">${e.tags.map(t=>`<span>${t}</span>`).join('')}</div>`:''}<p>${(e.text||'').replace(/\n/g,'<br>')}</p></div>`).join('');dlBlob('myDiary.html',`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>myDiary</title><style>body{font-family:Georgia,serif;max-width:680px;margin:40px auto;padding:0 24px;background:#f9f6f1;color:#1a1612}h1{font-style:italic;color:#b8723f;font-size:2rem}.e{border-bottom:1px solid #e5ddd2;padding:2rem 0}h2{color:#b8723f;font-size:1.1rem}.t span{background:#f2ede5;padding:2px 10px;border-radius:20px;font-size:.75rem;margin:0 3px;display:inline-block}p{line-height:1.85;color:#5a5040;margin-top:.75rem}</style></head><body><h1>myDiary</h1>${b}</body></html>`,'text/html');showToast('Exported');}
+function expTxt(){dlBlob('myDiary.txt',Object.entries(S.entries).sort((a,b)=>a[0].localeCompare(b[0])).map(([ds,e])=>`${ds} ${e.emoji||''}\n${'─'.repeat(40)}\n${e.text||''}\n\n`).join(''),'text/plain');showToast('Exported');}
 function shareToday(){const e=S.entries[tod()];if(!e?.text){showToast('No entry today');return;}navigator.clipboard.writeText(`${e.emoji||''} ${tod()}\n\n${e.text}`).then(()=>showToast('Copied')).catch(()=>showToast('Copy failed'));}
-function dl(n,c,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type}));a.download=n;a.click();}
 function clearAll(){if(!confirm('Clear ALL entries?'))return;S.entries={};sv();rCal();rStats();rMore();showToast('Cleared');}
+
+// ── Download helper — web or Capacitor Filesystem ──
+async function dlBlob(filename, content, mime){
+  // Try Capacitor Filesystem first (works in APK)
+  if(window.Capacitor?.Plugins?.Filesystem){
+    const FS=window.Capacitor.Plugins.Filesystem;
+    try{
+      const data=typeof content==='string'?btoa(unescape(encodeURIComponent(content))):content;
+      await FS.writeFile({path:filename,data,directory:'DOCUMENTS',encoding:typeof content==='string'?undefined:'base64'});
+      showToast('Saved to Documents');
+      return;
+    }catch(e){}
+  }
+  // Web fallback
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+}
+
+// ════ ENCRYPTION (AES-GCM 256, PBKDF2 SHA-256) ════
+const BACKUP_VERSION=1;
+// Derive a fixed app key + optional PIN so files can only be read by this app
+async function deriveKey(salt, passphrase){
+  const enc=new TextEncoder();
+  const km=await crypto.subtle.importKey('raw',enc.encode(passphrase),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},
+    km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']
+  );
+}
+
+function makePassphrase(){
+  // fixed app secret + user PIN if set (so file is tied to both app + PIN)
+  return 'myDiary§v1§2024'+(S.pin||'');
+}
+
+async function encryptPayload(plainObj){
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const key=await deriveKey(salt, makePassphrase());
+  const encoded=new TextEncoder().encode(JSON.stringify(plainObj));
+  const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,encoded);
+  // Pack into base64 strings
+  const b64=buf=>btoa(String.fromCharCode(...new Uint8Array(buf)));
+  return {v:BACKUP_VERSION,salt:b64(salt),iv:b64(iv),data:b64(cipher)};
+}
+
+async function decryptPayload(pkg, passphrase){
+  const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+  const key=await deriveKey(b64d(pkg.salt), passphrase);
+  const plain=await crypto.subtle.decrypt(
+    {name:'AES-GCM',iv:b64d(pkg.iv)},key,b64d(pkg.data)
+  );
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+// ════ BACKUP ════
+const AUTOBACKUP_KEY='mdr3_autobackups';
+
+function getAutoBackups(){
+  try{return JSON.parse(localStorage.getItem(AUTOBACKUP_KEY)||'[]');}catch(e){return [];}
+}
+function setAutoBackups(arr){
+  try{localStorage.setItem(AUTOBACKUP_KEY,JSON.stringify(arr));}catch(e){}
+}
+
+async function scheduleAutoBackup(){
+  const today=tod();
+  if(S.lastAutoBackup===today)return; // already done today
+  if(!Object.keys(S.entries).length)return; // nothing to back up
+  try{
+    const pkg=await encryptPayload({entries:S.entries,userName:S.userName,ts:Date.now()});
+    let backups=getAutoBackups();
+    backups.unshift({date:today,pkg,count:Object.keys(S.entries).length});
+    const keep=Math.max(1,Math.min(30,S.backupKeepDays||3));
+    backups=backups.slice(0,keep); // keep N most recent
+    setAutoBackups(backups);
+    S.lastAutoBackup=today; sv();
+  }catch(e){}
+}
+
+// Manual encrypted export — downloads a .mdbak file
+async function expEncrypted(){
+  try{
+    const pkg=await encryptPayload({entries:S.entries,userName:S.userName,ts:Date.now()});
+    const filename=`myDiary-${tod()}.mdbak`;
+    const json=JSON.stringify(pkg);
+    await dlBlob(filename, json, 'application/octet-stream');
+    showToast('Backup saved ✓');
+  }catch(e){showToast('Backup failed');}
+}
+
+// Restore from encrypted payload
+async function restoreFromPkg(pkg, passphrase){
+  const data=await decryptPayload(pkg, passphrase);
+  if(!data?.entries)throw new Error('Invalid backup');
+  return data;
+}
+
+// Import from file
+async function importBackupFile(input){
+  const file=input?.files?.[0];
+  if(!file){return;}
+  input.value='';
+  try{
+    const raw=await file.text();
+    const pkg=JSON.parse(raw);
+    if(pkg.v!==BACKUP_VERSION)throw new Error('Unknown version');
+
+    // Try current passphrase first, then ask for PIN if needed
+    let data=null;
+    try{ data=await restoreFromPkg(pkg, makePassphrase()); }catch(e){
+      // Maybe user had a different PIN — ask
+      const userPin=prompt((t('backupPinPrompt')||'Enter the PIN used when the backup was created (leave empty if none):'),'');
+      if(userPin===null)return; // cancelled
+      const altPass='myDiary§v1§2024'+(userPin||'');
+      data=await restoreFromPkg(pkg, altPass);
+    }
+
+    const count=Object.keys(data.entries||{}).length;
+    if(!confirm((t('backupRestoreConfirm')||`Restore ${count} entries? This will REPLACE your current diary.`).replace('{n}',count)))return;
+    S.entries=data.entries;
+    sv(); rCal(); rStats(); rMore();
+    closeBackup();
+    showToast((t('backupRestored')||'Restored!')+' '+count+' '+(t('entries')||'entries'));
+  }catch(e){
+    showToast(t('backupError')||'Restore failed — wrong PIN or invalid file');
+  }
+}
+
+// Restore from auto-backup slot
+async function restoreAutoBackup(idx){
+  const backups=getAutoBackups();
+  const bk=backups[idx];
+  if(!bk)return;
+  try{
+    let data=null;
+    try{ data=await restoreFromPkg(bk.pkg, makePassphrase()); }catch(e){
+      const userPin=prompt(t('backupPinPrompt')||'Enter PIN used when backup was created (empty if none):','');
+      if(userPin===null)return;
+      data=await restoreFromPkg(bk.pkg,'myDiary§v1§2024'+(userPin||''));
+    }
+    const count=Object.keys(data.entries||{}).length;
+    if(!confirm((t('backupRestoreConfirm')||`Restore ${count} entries from ${bk.date}? This will REPLACE your current diary.`).replace('{n}',count)))return;
+    S.entries=data.entries;
+    sv(); rCal(); rStats(); rMore();
+    closeBackup();
+    showToast((t('backupRestored')||'Restored!')+' '+count+' '+(t('entries')||'entries'));
+  }catch(e){
+    showToast(t('backupError')||'Restore failed');
+  }
+}
+
+// Download an auto-backup slot as .mdbak file
+async function downloadAutoBackup(idx){
+  const backups=getAutoBackups();
+  const bk=backups[idx];
+  if(!bk)return;
+  const filename=`myDiary-backup-${bk.date}.mdbak`;
+  await dlBlob(filename, JSON.stringify(bk.pkg), 'application/octet-stream');
+  showToast('Downloaded ✓');
+}
+
+// Delete one auto-backup
+function deleteAutoBackup(idx){
+  const backups=getAutoBackups();
+  backups.splice(idx,1);
+  setAutoBackups(backups);
+  renderBackupModal();
+}
+
+// Open backup modal
+function openBackup(){
+  renderBackupModal();
+  document.getElementById('bkmodal').classList.add('open');
+}
+function closeBackup(){
+  document.getElementById('bkmodal').classList.remove('open');
+}
+function bkBgClick(e){
+  if(e.target.classList.contains('bkbg'))closeBackup();
+}
+
+function renderBackupModal(){
+  const scroll=document.getElementById('bkscroll');
+  const backups=getAutoBackups();
+  const keep=Math.max(1,Math.min(30,S.backupKeepDays||3));
+
+  scroll.innerHTML=`
+    <div class="bk-sh">${t('bkAutoTitle')||'Automatic Daily Backups'}</div>
+    <div class="bk-keep-row">
+      <div class="bk-keep-lbl">${t('bkKeepDays')||'Backups to keep'}</div>
+      <div class="bk-keep-ctrl">
+        <button class="bk-step" onclick="adjKeep(-1)">−</button>
+        <div class="bk-keep-n" id="bk-keep-n">${keep}</div>
+        <button class="bk-step" onclick="adjKeep(1)">+</button>
+      </div>
+    </div>
+    <div class="bk-list" id="bk-auto-list">
+      ${backups.length===0
+        ?`<div class="bk-empty">${t('bkNoAuto')||'No automatic backups yet. Open the app daily to build up backups.'}</div>`
+        :backups.map((bk,i)=>{
+          const d=new Date(bk.date+'T12:00:00');
+          const label=d.toLocaleDateString(S.lang,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+          return `<div class="bk-item">
+            <div class="bk-item-icon">🔒</div>
+            <div class="bk-item-body">
+              <div class="bk-item-date">${label}</div>
+              <div class="bk-item-meta">${bk.count} ${t('entries')||'entries'} · AES-256</div>
+            </div>
+            <div class="bk-item-actions">
+              <button class="bk-sm-btn" onclick="downloadAutoBackup(${i})">⬇</button>
+              <button class="bk-sm-btn primary" onclick="restoreAutoBackup(${i})">${t('bkRestore')||'Restore'}</button>
+              <button class="bk-sm-btn" onclick="deleteAutoBackup(${i})">✕</button>
+            </div>
+          </div>`;
+        }).join('')
+      }
+    </div>
+
+    <div class="bk-sh">${t('bkManualTitle')||'Manual Backup'}</div>
+    <div class="bk-list">
+      <div class="bk-item" style="cursor:pointer" onclick="expEncrypted()">
+        <div class="bk-item-icon">📤</div>
+        <div class="bk-item-body">
+          <div class="bk-item-date">${t('bkExport')||'Export encrypted backup'}</div>
+          <div class="bk-item-meta">${t('bkExportSub')||'Downloads a .mdbak file — encrypted, only readable by this app'}</div>
+        </div>
+        <div class="bk-enc-badge">🔒 AES-256</div>
+      </div>
+    </div>
+
+    <div class="bk-sh">${t('bkRestoreTitle')||'Restore from File'}</div>
+    <div class="bk-import-zone" onclick="document.getElementById('bk-file-in').click()">
+      <div class="bk-import-icon">📂</div>
+      <div class="bk-import-lbl">${t('bkImportLbl')||'Tap to choose a .mdbak file'}</div>
+      <div class="bk-import-sub">${t('bkImportSub')||'Restores all entries from a backup'}</div>
+      <div class="bk-enc-badge">🔒 Encrypted</div>
+    </div>
+
+    <div class="bk-sh">${t('bkPlainTitle')||'Plain Exports'}</div>
+    <div class="m-sec" style="margin-bottom:0">
+      <div class="m-row" onclick="expHTML()"><span class="mr-lbl">${t('expHtml')}</span><span class="mr-arr">›</span></div>
+      <div class="m-row" onclick="expTxt()"><span class="mr-lbl">${t('expTxt')}</span><span class="mr-arr">›</span></div>
+      <div class="m-row" onclick="shareToday()"><span class="mr-lbl">${t('shareT')}</span><span class="mr-arr">›</span></div>
+    </div>
+    <div style="height:8px"></div>
+  `;
+}
+
+function adjKeep(delta){
+  S.backupKeepDays=Math.max(1,Math.min(30,(S.backupKeepDays||3)+delta));
+  sv();
+  // Trim existing backups if reduced
+  let backups=getAutoBackups();
+  backups=backups.slice(0,S.backupKeepDays);
+  setAutoBackups(backups);
+  renderBackupModal();
+}
+
+// ════ LOCATION + MAP ════
+function toggleLocation(enabled){
+  if(enabled&&!S.locationEnabled){
+    // Request permission first
+    navigator.geolocation?.getCurrentPosition(
+      ()=>{ S.locationEnabled=true; sv(); rMore(); updMapBtn(); showToast(t('locationOn')||'Location enabled'); },
+      ()=>{ showToast(t('locationDenied')||'Location permission denied'); rMore(); }
+    );
+  } else {
+    S.locationEnabled=enabled; sv(); rMore(); updMapBtn();
+  }
+}
+
+let leafletMap=null;
+let mapPopupDate=null;
+
+function openMapView(){
+  const entries=Object.entries(S.entries).filter(([,e])=>e.loc);
+  const mv=document.getElementById('mapview');
+  mv.classList.add('open');
+
+  // Count
+  document.getElementById('mv-count').textContent=entries.length+' '+(t('entries')||'entries');
+
+  // Init or reset map
+  setTimeout(()=>{
+    if(!leafletMap){
+      leafletMap=L.map('leaflet-map',{
+        zoomControl:true,
+        attributionControl:false,
+      });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        maxZoom:19,
+      }).addTo(leafletMap);
+      // Subtle attribution
+      L.control.attribution({prefix:false,position:'bottomright'}).addTo(leafletMap);
+      leafletMap.attributionControl.addAttribution('© OpenStreetMap');
+    } else {
+      // Clear existing markers
+      leafletMap.eachLayer(layer=>{
+        if(layer instanceof L.Marker)leafletMap.removeLayer(layer);
+      });
+    }
+
+    if(entries.length===0){
+      document.getElementById('map-empty').style.display='flex';
+      // Center on a default spot
+      leafletMap.setView([20,0],2);
+      return;
+    }
+    document.getElementById('map-empty').style.display='none';
+
+    const bounds=[];
+    entries.forEach(([ds,e])=>{
+      const {lat,lng}=e.loc;
+      bounds.push([lat,lng]);
+      // Custom icon
+      const isDark=S.theme==='dark';
+      const accentColor=isDark?'#cc8c58':S.theme==='pastel'?'#b85bac':'#b8723f';
+      const iconHtml=`<div style="width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${accentColor};border:2.5px solid white;box-shadow:0 3px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center">
+        <span style="transform:rotate(45deg);font-size:15px;line-height:1">${e.emoji||'📝'}</span>
+      </div>`;
+      const icon=L.divIcon({html:iconHtml,className:'',iconSize:[36,36],iconAnchor:[12,34],popupAnchor:[6,-34]});
+      const marker=L.marker([lat,lng],{icon});
+      marker.on('click',()=>openMapPopup(ds));
+      marker.addTo(leafletMap);
+    });
+
+    if(bounds.length===1){
+      leafletMap.setView(bounds[0],13);
+    } else {
+      leafletMap.fitBounds(bounds,{padding:[40,40]});
+    }
+    // Invalidate size after animation
+    leafletMap.invalidateSize();
+  },420);
+}
+
+function closeMapView(){
+  document.getElementById('mapview').classList.remove('open');
+  closeMapPopup();
+}
+
+function openMapPopup(ds){
+  mapPopupDate=ds;
+  const e=S.entries[ds];
+  if(!e)return;
+  document.getElementById('mp-emoji').textContent=e.emoji||'📝';
+  document.getElementById('mp-date').textContent=fmt(ds,{weekday:'long',month:'long',day:'numeric'}).toUpperCase();
+  const text=e.text||'';
+  const firstLine=text.split('\n')[0].trim();
+  document.getElementById('mp-headline').textContent=firstLine.slice(0,60)||(fmt(ds,{month:'long',day:'numeric'}));
+  document.getElementById('mp-preview').textContent=text.slice(firstLine.length).trim().slice(0,180)||'';
+  // Location accuracy
+  if(e.loc?.acc){
+    document.getElementById('mp-loc').textContent='±'+e.loc.acc+'m';
+  } else {
+    document.getElementById('mp-loc').textContent='';
+  }
+  document.getElementById('map-popup').classList.add('open');
+}
+
+function closeMapPopup(){
+  document.getElementById('map-popup').classList.remove('open');
+  mapPopupDate=null;
+}
+
+function openFromMap(){
+  const ds=mapPopupDate;
+  if(!ds)return;
+  closeMapView();
+  setTimeout(()=>tapDay(ds),380);
+}
+
+function openMapFromRead(ds){
+  closeRead();
+  setTimeout(()=>{
+    openMapView();
+    setTimeout(()=>openMapPopup(ds),600);
+  },380);
+}
+
+// ════ NAME EDITING ════
+function editName(){
+  const name=prompt(t('editNamePrompt')||'Your name:',S.userName||'');
+  if(name===null)return;
+  S.userName=name.trim();
+  sv(); rMore(); updTBName();
+}
+
+// ════ TEMPLATES ════
+const TEMPLATES = [
+  {
+    id:'dayreview', icon:'🌅',
+    en:{name:'Day Review',desc:'A structured review of your day',text:'How was today overall?\n\n\nWhat went well?\n\n\nWhat could have been better?\n\n\nOne thing I learned today:\n\n\nTomorrow I want to:\n'},
+    sv:{name:'Dagsrecension',desc:'En strukturerad genomgång av din dag',text:'Hur var dagen överlag?\n\n\nVad gick bra?\n\n\nVad kunde ha gått bättre?\n\n\nEn sak jag lärde mig idag:\n\n\nImorgon vill jag:\n'},
+  },
+  {
+    id:'gratitude', icon:'🙏',
+    en:{name:'Gratitude Log',desc:'Focus on what you\'re thankful for',text:'3 things I\'m grateful for today:\n1. \n2. \n3. \n\nSomeone who made my day better:\n\n\nA small moment I want to remember:\n\n\nHow I can spread kindness tomorrow:\n'},
+    sv:{name:'Tacksamma stunder',desc:'Fokusera på vad du är tacksam för',text:'3 saker jag är tacksam för idag:\n1. \n2. \n3. \n\nNågon som gjorde min dag bättre:\n\n\nEtt litet ögonblick jag vill minnas:\n\n\nHur kan jag sprida vänlighet imorgon:\n'},
+  },
+  {
+    id:'feelings', icon:'💭',
+    en:{name:'Feelings Check-in',desc:'Explore your emotional state',text:'Right now I feel:\n\n\nWhat triggered this feeling?\n\n\nWhere do I feel it in my body?\n\n\nWhat do I need right now?\n\n\nOne thing I can do to take care of myself:\n'},
+    sv:{name:'Känslocheck',desc:'Utforska ditt känslomässiga tillstånd',text:'Just nu känner jag:\n\n\nVad utlöste den här känslan?\n\n\nVar i kroppen känner jag det?\n\n\nVad behöver jag just nu?\n\n\nEn sak jag kan göra för mig själv:\n'},
+  },
+  {
+    id:'dream', icon:'🌙',
+    en:{name:'Dream Journal',desc:'Capture your dreams before they fade',text:'Dream setting / where I was:\n\n\nWhat happened:\n\n\nPeople or characters:\n\n\nEmotions during the dream:\n\n\nAnything that stood out or felt symbolic:\n'},
+    sv:{name:'Drömjournalen',desc:'Fånga dina drömmar innan de bleknar',text:'Drömmens plats / var jag var:\n\n\nVad hände:\n\n\nPersoner eller karaktärer:\n\n\nKänslor under drömmen:\n\n\nNågot som stack ut eller kändes symboliskt:\n'},
+  },
+  {
+    id:'weekly', icon:'📆',
+    en:{name:'Weekly Reflection',desc:'Look back on your whole week',text:'This week in one word:\n\n\nHighlight of the week:\n\n\nBiggest challenge:\n\n\nSomething I\'m proud of:\n\n\nWhat I want to focus on next week:\n\n\nA quote or thought that stayed with me:\n'},
+    sv:{name:'Veckoreflexion',desc:'Blicka tillbaka på hela din vecka',text:'Veckans ord:\n\n\nVeckans höjdpunkt:\n\n\nStörsta utmaningen:\n\n\nNågot jag är stolt över:\n\n\nVad jag vill fokusera på nästa vecka:\n\n\nEtt citat eller en tanke som stannade hos mig:\n'},
+  },
+  {
+    id:'freewrite', icon:'✍️',
+    en:{name:'Free Write',desc:'Stream of consciousness — no rules',text:''},
+    sv:{name:'Fritt skrivande',desc:'Tankarna flödar — inga regler',text:''},
+  },
+];
+
+let selectedTemplate=null;
+
+function openTemplates(){
+  selectedTemplate=null;
+  const scroll=document.getElementById('tscroll');
+  const lang=S.lang;
+  scroll.innerHTML='';
+  TEMPLATES.forEach(tmpl=>{
+    const d=tmpl[lang]||tmpl.en;
+    const card=document.createElement('div');
+    card.className='tcard';
+    card.dataset.id=tmpl.id;
+    const preview=d.text?d.text.replace(/\n+/g,' ').trim().slice(0,80)+(d.text.length>80?'…':''):'';
+    card.innerHTML=`<div class="tcard-icon">${tmpl.icon}</div>
+      <div class="tcard-body">
+        <div class="tcard-name">${d.name}</div>
+        <div class="tcard-desc">${d.desc}</div>
+        ${preview?`<div class="tcard-preview">${preview}</div>`:''}
+      </div>`;
+    card.onclick=()=>{
+      scroll.querySelectorAll('.tcard').forEach(c=>c.classList.remove('sel'));
+      card.classList.add('sel');
+      selectedTemplate=tmpl;
+    };
+    scroll.appendChild(card);
+  });
+  // Localize title/sub
+  document.getElementById('tm-title').textContent=T[lang]?.tmplTitle||T.en.tmplTitle||'Entry Templates';
+  document.getElementById('tm-sub').textContent=T[lang]?.tmplSub||T.en.tmplSub||'Choose a template to get started';
+  document.getElementById('tm-use-btn').textContent=T[lang]?.tmplUse||T.en.tmplUse||'Use Template →';
+  document.getElementById('tmodal').classList.add('open');
+}
+
+function closeTemplates(){
+  document.getElementById('tmodal').classList.remove('open');
+}
+
+function tModalBgClick(e){
+  if(e.target.classList.contains('tmbg'))closeTemplates();
+}
+
+function useTemplate(){
+  if(!selectedTemplate)return;
+  const d=selectedTemplate[S.lang]||selectedTemplate.en;
+  const ta=document.getElementById('eta');
+  if(ta){
+    ta.value=d.text||'';
+    updWC();
+    // Focus textarea at start
+    ta.focus();
+    ta.setSelectionRange(0,0);
+  }
+  closeTemplates();
+}
 
 // ════ TOAST ════
 let tt;
 function showToast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2000);}
+
+// ════ ONBOARDING ════
+let onbStep=0;
+const ONB_STEPS=5;
+
+function initOnboarding(){
+  const el=document.getElementById('onb');
+  el.classList.add('vis');
+  onbStep=0;
+  applyTheme(S.theme);
+  renderOnbProgress();
+  updateOnbTexts();
+  const ls=document.getElementById('onb-lang-sel');
+  if(ls)ls.value=S.lang||'en';
+}
+
+function renderOnbProgress(){
+  const p=document.getElementById('onb-progress');
+  p.innerHTML='';
+  for(let i=0;i<ONB_STEPS+1;i++){
+    const d=document.createElement('div');
+    d.className='onb-dot'+(i===onbStep?' on':'');
+    p.appendChild(d);
+  }
+}
+
+function updateOnbTexts(){
+  const l=S.lang||'en';
+  const tl=T[l]||T.en;
+  const set=(id,k)=>{const el=document.getElementById(id);if(el&&tl[k])el.textContent=tl[k];};
+  set('onb-tagline','onb_tagline');
+  set('onb-welcome-btn','onb_start');
+  set('onb-q-name','onb_qname');
+  set('onb-name-btn','onb_next');
+  set('onb-q-theme','onb_qtheme');
+  set('onb-q-lang','onb_qlang');
+  set('onb-q-loc','onb_qloc');
+  set('onb-loc-title','onb_locTitle');
+  set('onb-loc-desc','onb_locDesc');
+  set('onb-loc-priv','onb_locPriv');
+  set('onb-done-sub','onb_doneSub');
+  // theme labels
+  const thL=document.getElementById('onb-th-light');
+  const thD=document.getElementById('onb-th-dark');
+  const thP=document.getElementById('onb-th-pastel');
+  if(thL)thL.querySelector('.onb-th-label').textContent=tl.onb_thLight||'Light';
+  if(thD)thD.querySelector('.onb-th-label').textContent=tl.onb_thDark||'Dark';
+  if(thP)thP.querySelector('.onb-th-label').textContent=tl.onb_thPastel||'Pastel';
+  // skip buttons
+  document.querySelectorAll('.onb-skip').forEach(el=>{el.textContent=tl.onb_skip||'Skip';});
+  // done name
+  const dn=document.getElementById('onb-done-name');
+  if(dn){
+    const name=document.getElementById('onb-name-in')?.value?.trim();
+    dn.textContent=name?(tl.onb_done||"You're all set")+', '+name+'!':(tl.onb_done||"You're all set")+'!';
+  }
+  // begin btn
+  const bb=document.getElementById('onbs-5')?.querySelector('.onb-btn');
+  if(bb)bb.textContent=tl.onb_begin||'Start writing';
+}
+
+function onbTheme(th){
+  S.theme=th; applyTheme(th);
+  document.querySelectorAll('.onb-th').forEach(x=>x.classList.remove('sel'));
+  document.getElementById('onb-th-'+th)?.classList.add('sel');
+}
+
+function onbLangChange(lang){
+  S.lang=lang; applyLang(lang); updateOnbTexts();
+}
+
+function onbNext(){
+  // Collect data from current step
+  if(onbStep===1){
+    const name=document.getElementById('onb-name-in').value.trim();
+    if(name)S.userName=name;
+  }
+  if(onbStep===3){
+    const lang=document.getElementById('onb-lang-sel').value;
+    S.lang=lang; applyLang(lang);
+    // set default voice lang
+    const vmap={en:'en-US',sv:'sv-SE',es:'es-ES',fr:'fr-FR',de:'de-DE',ja:'ja-JP',zh:'zh-CN',ar:'ar-SA'};
+    if(!S.voiceLang)S.voiceLang=vmap[lang]||'en-US';
+  }
+  if(onbStep===4){
+    S.locationEnabled=document.getElementById('onb-loc-toggle').checked;
+  }
+  onbStep++;
+  if(onbStep>ONB_STEPS){onbFinish();return;}
+  // Update UI
+  document.querySelectorAll('.onb-step').forEach((el,i)=>el.classList.toggle('active',i===onbStep));
+  renderOnbProgress();
+  updateOnbTexts();
+}
+
+function onbFinish(){
+  S.onboarded=true;
+  if(!S.voiceLang){
+    const vmap={en:'en-US',sv:'sv-SE',es:'es-ES',fr:'fr-FR',de:'de-DE',ja:'ja-JP',zh:'zh-CN',ar:'ar-SA'};
+    S.voiceLang=vmap[S.lang]||'en-US';
+  }
+  sv();
+  const onbEl=document.getElementById('onb');
+  onbEl.classList.remove('vis');
+  setTimeout(()=>{
+    document.getElementById('app').classList.add('show');
+    document.getElementById('savebar').classList.remove('vis');
+    updTBName(); rCal(); rStats(); rMore();
+    scheduleAutoBackup();
+  },400);
+}
+
+// ════ VOICE ════
+const VOICE_LANG_MAP={en:'en-US',sv:'sv-SE',es:'es-ES',fr:'fr-FR',de:'de-DE',ja:'ja-JP',zh:'zh-CN',ar:'ar-SA'};
+
+// SR abstraction: returns {start(lang,onInterim,onFinal), stop}
+function makeSR(){
+  // Try Capacitor plugin
+  if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition){
+    const SR=window.Capacitor.Plugins.SpeechRecognition;
+    let listenerHandle=null;
+    return {
+      async start(lang,onInterim,onFinal){
+        try{
+          await SR.requestPermission();
+          listenerHandle=await SR.addListener('partialResults',(data)=>{
+            const txt=(data.value||[])[0]||'';
+            onInterim(txt);
+          });
+          await SR.start({language:lang,maxResults:1,popup:false,partialResults:true});
+        }catch(e){onFinal('');showToast('Mic error');}
+      },
+      async stop(onFinal){
+        try{
+          const r=await SR.stop();
+          if(listenerHandle)listenerHandle.remove();
+          const txt=(r?.matches||[])[0]||(r?.value||'');
+          onFinal(txt||'');
+        }catch(e){onFinal('');}
+      }
+    };
+  }
+  // Web Speech API fallback
+  const W=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!W)return null;
+  let rec=null;
+  return {
+    start(lang,onInterim,onFinal){
+      if(rec){try{rec.abort();}catch(e){}}
+      rec=new W();
+      rec.lang=lang; rec.continuous=true; rec.interimResults=true;
+      let final='';
+      rec.onresult=(e)=>{
+        let interim='';
+        for(let i=e.resultIndex;i<e.results.length;i++){
+          if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';
+          else interim+=e.results[i][0].transcript;
+        }
+        onInterim(final+interim,final);
+      };
+      rec.onerror=(e)=>{if(e.error!=='aborted')showToast('Mic error: '+e.error);};
+      rec.onend=()=>{ onFinal(final.trim()); };
+      try{rec.start();}catch(e){showToast(t('voiceNoSup')||'Voice not supported');}
+    },
+    stop(){
+      if(rec){try{rec.stop();}catch(e){rec=null;}}
+    }
+  };
+}
+
+let vTab='free';
+let vSR=null;
+let vFreeRecording=false;
+let vFreeText='';
+let vFreeInterim='';
+
+let vGuidedStep=0;
+let vGuidedAnswers=[];
+let vGuidedRecording=false;
+let vGuidedCurText='';
+let vGuidedInterim='';
+const V_Q_COUNT=5;
+
+function openVoice(){
+  vSR=makeSR();
+  const vm=document.getElementById('vmodal');
+  // Update lang select
+  const vs=document.getElementById('vlang-select');
+  if(vs)vs.value=S.voiceLang||(VOICE_LANG_MAP[S.lang]||'en-US');
+  // Update title and tabs
+  document.getElementById('vm-title').textContent=t('voiceTitle')||'Voice to text';
+  document.getElementById('vtab-free').textContent=t('voiceFree')||'Free';
+  document.getElementById('vtab-guided').textContent=t('voiceGuided')||'Guided';
+  document.getElementById('vlang-lbl').textContent=t('voiceLangLbl')||'Speech language';
+  // Reset free
+  vFreeText=''; vFreeInterim=''; vFreeRecording=false;
+  renderFreeTranscript();
+  const fm=document.getElementById('vmic-free');
+  if(fm){fm.textContent='🎙️';fm.classList.remove('recording');}
+  document.getElementById('vmic-status').textContent=t('voiceTap')||'Tap to record';
+  // Reset guided
+  vGuidedStep=0; vGuidedAnswers=[]; vGuidedRecording=false; vGuidedCurText=''; vGuidedInterim='';
+  renderGuidedStep();
+  // Hide result
+  document.getElementById('vg-result').classList.remove('show');
+  document.getElementById('vg-result-lbl').style.display='none';
+  document.getElementById('vg-use-wrap').style.display='none';
+  // Apply current tab
+  setVTab(vTab);
+  vm.classList.add('open');
+}
+
+function closeVoice(){
+  stopAllRecording();
+  document.getElementById('vmodal').classList.remove('open');
+}
+
+function vModalBgClick(e){
+  if(e.target.classList.contains('vmbg'))closeVoice();
+}
+
+function stopAllRecording(){
+  if(vFreeRecording){vFreeRecording=false;vSR?.stop(()=>{});}
+  if(vGuidedRecording){vGuidedRecording=false;vSR?.stop(()=>{});}
+  const fm=document.getElementById('vmic-free');
+  if(fm){fm.textContent='🎙️';fm.classList.remove('recording');}
+  const gm=document.getElementById('vg-mic');
+  if(gm){gm.textContent='🎙️';gm.classList.remove('recording');}
+}
+
+function setVTab(tab){
+  vTab=tab;
+  stopAllRecording();
+  document.getElementById('vtab-free').classList.toggle('active',tab==='free');
+  document.getElementById('vtab-guided').classList.toggle('active',tab==='guided');
+  document.getElementById('vfree').classList.toggle('show',tab==='free');
+  document.getElementById('vguided').classList.toggle('show',tab==='guided');
+}
+
+// ── FREE MODE ──
+function toggleFreeMic(){
+  if(!vSR){showToast(t('voiceNoSup')||'Not supported');return;}
+  if(vFreeRecording){
+    vFreeRecording=false;
+    vSR.stop((final)=>{
+      if(final)vFreeText=(vFreeText+' '+final).trim();
+      vFreeInterim='';
+      renderFreeTranscript();
+      const fm=document.getElementById('vmic-free');
+      if(fm){fm.textContent='🎙️';fm.classList.remove('recording');}
+      document.getElementById('vmic-status').textContent=t('voiceTap')||'Tap to record';
+    });
+  } else {
+    const lang=document.getElementById('vlang-select').value||S.voiceLang||'en-US';
+    S.voiceLang=lang; sv();
+    vFreeRecording=true;
+    const fm=document.getElementById('vmic-free');
+    if(fm){fm.textContent='⏹️';fm.classList.add('recording');}
+    document.getElementById('vmic-status').textContent=t('voiceRec')||'Recording…';
+    vSR.start(lang,
+      (all,final)=>{
+        vFreeInterim=all; if(final!==undefined)vFreeText=final||vFreeText;
+        renderFreeTranscript();
+      },
+      (final)=>{
+        if(final)vFreeText=(vFreeText+' '+final).trim();
+        vFreeInterim=''; vFreeRecording=false;
+        renderFreeTranscript();
+        const fm2=document.getElementById('vmic-free');
+        if(fm2){fm2.textContent='🎙️';fm2.classList.remove('recording');}
+        document.getElementById('vmic-status').textContent=t('voiceTap')||'Tap to record';
+      }
+    );
+  }
+}
+
+function renderFreeTranscript(){
+  const el=document.getElementById('vtranscript-free');
+  const ph=document.getElementById('vtranscript-ph');
+  if(!vFreeText&&!vFreeInterim){
+    if(ph)ph.style.display='';
+    el.innerHTML='<span class="vt-ph" style="color:var(--text3);font-style:italic;font-size:.85rem">'+(t('voicePh')||'Your speech will appear here…')+'</span>';
+    return;
+  }
+  el.innerHTML=(vFreeText?('<span>'+vFreeText+'</span>'):'')+(vFreeInterim?('<span class="interim"> '+vFreeInterim+'</span>'):'');
+}
+
+function vFreeRestart(){
+  stopAllRecording();
+  vFreeText=''; vFreeInterim='';
+  renderFreeTranscript();
+  document.getElementById('vmic-status').textContent=t('voiceTap')||'Tap to record';
+}
+
+function vFreeUse(){
+  const text=(vFreeText||vFreeInterim||'').trim();
+  if(!text){showToast(t('voiceNoText')||'No text to use');return;}
+  const ta=document.getElementById('eta');
+  if(ta){ta.value=(ta.value?ta.value+'\n\n':'')+text;updWC();}
+  closeVoice();
+}
+
+// ── GUIDED MODE ──
+function renderGuidedStep(){
+  const questions=t('vq')||T.en.vq;
+  const total=V_Q_COUNT;
+  const step=vGuidedStep;
+
+  document.getElementById('vg-step-lbl').textContent=
+    (t('voiceQuestion')||'Question')+' '+(step+1)+' '+(t('voiceStepOf')||'of')+' '+total;
+
+  // Dots
+  const dotsEl=document.getElementById('vg-dots');
+  dotsEl.innerHTML='';
+  for(let i=0;i<total;i++){
+    const d=document.createElement('div');
+    d.className='vg-dot'+(i<step?' done':i===step?' cur':'');
+    dotsEl.appendChild(d);
+  }
+
+  // Question
+  document.getElementById('vg-question').textContent=questions[step]||'';
+
+  // Answer area
+  const ans=document.getElementById('vg-answer');
+  const ph=document.getElementById('vg-ans-ph');
+  const saved=vGuidedAnswers[step]||'';
+  if(saved||vGuidedCurText||vGuidedInterim){
+    const display=vGuidedCurText||saved;
+    ans.innerHTML=(display?'<span>'+display+'</span>':'')+(vGuidedInterim?'<span class="interim"> '+vGuidedInterim+'</span>':'');
+    ans.classList.toggle('listening',vGuidedRecording);
+  } else {
+    ans.innerHTML='<span class="vg-answer-ph">'+(t('voiceAnsPh')||'Tap the mic and answer…')+'</span>';
+    ans.classList.remove('listening');
+  }
+
+  // Hint
+  const hint=document.getElementById('vg-mic-hint');
+  if(hint)hint.innerHTML=vGuidedRecording?('<b style="color:var(--danger)">'+(t('voiceRec')||'Recording…')+'</b><br>Tap ⏹️ to stop.'):'Tap to record.<br>Tap again to stop.<br>Tap <b>↺</b> to redo.';
+
+  // Next button label
+  const nextBtn=document.getElementById('vg-next-btn');
+  if(nextBtn){
+    if(step>=total-1)nextBtn.textContent=(t('voiceSee')||'See result ›');
+    else nextBtn.textContent=(t('voiceNext')||'Next →');
+  }
+}
+
+function toggleGuidedMic(){
+  if(!vSR){showToast(t('voiceNoSup')||'Not supported');return;}
+  if(vGuidedRecording){
+    vGuidedRecording=false;
+    vSR.stop((final)=>{
+      if(final)vGuidedCurText=(vGuidedCurText+' '+final).trim();
+      vGuidedInterim='';
+      vGuidedAnswers[vGuidedStep]=vGuidedCurText;
+      const gm=document.getElementById('vg-mic');
+      if(gm){gm.textContent='🎙️';gm.classList.remove('recording');}
+      renderGuidedStep();
+    });
+  } else {
+    const lang=document.getElementById('vlang-select').value||S.voiceLang||'en-US';
+    S.voiceLang=lang; sv();
+    vGuidedRecording=true;
+    const gm=document.getElementById('vg-mic');
+    if(gm){gm.textContent='⏹️';gm.classList.add('recording');}
+    vSR.start(lang,
+      (all,final)=>{
+        vGuidedInterim=all; if(final!==undefined)vGuidedCurText=final||vGuidedCurText;
+        renderGuidedStep();
+      },
+      (final)=>{
+        if(final)vGuidedCurText=(vGuidedCurText+' '+final).trim();
+        vGuidedInterim=''; vGuidedRecording=false;
+        vGuidedAnswers[vGuidedStep]=vGuidedCurText;
+        const gm2=document.getElementById('vg-mic');
+        if(gm2){gm2.textContent='🎙️';gm2.classList.remove('recording');}
+        renderGuidedStep();
+      }
+    );
+  }
+}
+
+function vGuidedRestart(){
+  stopAllRecording();
+  vGuidedCurText=''; vGuidedInterim='';
+  delete vGuidedAnswers[vGuidedStep];
+  renderGuidedStep();
+}
+
+function vGuidedNext(){
+  stopAllRecording();
+  // Save current
+  if(vGuidedCurText)vGuidedAnswers[vGuidedStep]=vGuidedCurText;
+  if(vGuidedStep<V_Q_COUNT-1){
+    vGuidedStep++;
+    vGuidedCurText=vGuidedAnswers[vGuidedStep]||'';
+    vGuidedInterim='';
+    renderGuidedStep();
+    // Hide result
+    document.getElementById('vg-result').classList.remove('show');
+    document.getElementById('vg-result-lbl').style.display='none';
+    document.getElementById('vg-use-wrap').style.display='none';
+  } else {
+    // Show composed result
+    vGuidedCompose();
+  }
+}
+
+function vGuidedCompose(){
+  const questions=t('vq')||T.en.vq;
+  let composed='';
+  for(let i=0;i<V_Q_COUNT;i++){
+    const ans=(vGuidedAnswers[i]||'').trim();
+    if(ans){
+      composed+=questions[i]+'\n'+ans+'\n\n';
+    }
+  }
+  composed=composed.trim();
+  if(!composed){showToast(t('voiceNoText')||'No answers recorded');return;}
+  document.getElementById('vg-result').textContent=composed;
+  document.getElementById('vg-result').classList.add('show');
+  document.getElementById('vg-result-lbl').style.display='block';
+  document.getElementById('vg-result-lbl').textContent=t('voiceYourEntry')||'Your entry';
+  document.getElementById('vg-use-wrap').style.display='block';
+}
+
+function vGuidedUse(){
+  const text=document.getElementById('vg-result').textContent.trim();
+  if(!text)return;
+  const ta=document.getElementById('eta');
+  if(ta){ta.value=(ta.value?ta.value+'\n\n':'')+text;updWC();}
+  closeVoice();
+}
 </script>
 </body>
 </html>
