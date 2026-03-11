@@ -31,8 +31,14 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Capacitor Android (safe)
-        run: npm install @capacitor/android --no-save
+      - name: Install Capacitor core + plugins
+        run: |
+          npm install @capacitor/android --no-save
+          npm install @capacitor/geolocation --no-save
+          npm install @capacitor/filesystem --no-save
+          npm install @capacitor-community/speech-recognition --no-save
+          npm install @capacitor/status-bar --no-save
+          npm install @capacitor/splash-screen --no-save
 
       - name: Add Android project if missing
         run: |
@@ -42,16 +48,51 @@ jobs:
             echo "android/ exists — skipping cap add"
           fi
 
-      - name: Sync Capacitor (copy web assets)
+      - name: Sync Capacitor (copy web assets + plugins)
         run: npx cap sync android
 
-      - name: Setup Java (required for Gradle)
+      # ── PATCH AndroidManifest.xml ──────────────────────────────────
+      - name: Patch AndroidManifest — permissions + security
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+
+          # Internet — krävs för OpenStreetMap-karttiles
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />||g'  "$MANIFEST"
+          sed -i '/<manifest /a\    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
+
+          # Plats — för platsloggning i dagboken
+          sed -i '/<manifest /a\    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' "$MANIFEST"
+          sed -i '/<manifest /a\    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' "$MANIFEST"
+
+          # Mikrofon — för röst-till-text
+          sed -i '/<manifest /a\    <uses-permission android:name="android.permission.RECORD_AUDIO" />' "$MANIFEST"
+
+          # Lagring — för backup-filer (Android 9 och äldre)
+          sed -i '/<manifest /a\    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />' "$MANIFEST"
+          sed -i '/<manifest /a\    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />' "$MANIFEST"
+
+          # Blockera okrypterad HTTP-trafik i <application>
+          sed -i 's/<application/<application android:usesCleartextTraffic="false"/' "$MANIFEST"
+
+          echo "=== Patched AndroidManifest.xml ==="
+          cat "$MANIFEST"
+
+      # ── PATCH build.gradle — minSdkVersion ────────────────────────
+      - name: Patch build.gradle — minSdkVersion 26
+        run: |
+          # Web Crypto AES-GCM (kryptering) kräver API 26+
+          sed -i 's/minSdkVersion [0-9]*/minSdkVersion 26/' android/app/build.gradle
+          echo "=== minSdkVersion ==="
+          grep "minSdkVersion" android/app/build.gradle
+
+      # ── BUILD ──────────────────────────────────────────────────────
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Android SDK (commandline tools + platform-tools)
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v2
         with:
           api-level: ${{ env.ANDROID_API_LEVEL }}
